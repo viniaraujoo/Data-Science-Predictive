@@ -1,0 +1,258 @@
+---
+title: "Analise_de_Gastos_de_Deputados"
+output: html_document
+author: "Vinicius Brandão"
+---
+
+```{r}
+library(readr)
+library(tidyverse)
+library(lubridate)
+options(scipen = 999)
+```
+ 
+## Descrição do Problema
+Analise realizada para a disciplina de Ciência de dados Preditiva (Periodo: 2018.2) e tem como principal objetivo responder determinadas perguntas sobre o conjunto de dados referentes a gastos de deputados relacionados a atividade parlamentar utilizando o CEAP(cota para o exercício da atividade parlamentar).
+
+**Ceap:** É uma cota única mensal destinada a custear os gastos dos deputados exclusivamente vinculados ao exercício da atividade parlamentar. Exemplos de despesa desse tipo são: passagens aéreas, telefonia, serviços postais, manutenção de escritórios de apoio à atividade parlamentar, assinatura de publicações, fornecimento de alimentação ao parlamentar, hospedagem, outras despesas com locomoção, contemplando locação ou fretamento de aeronaves, veículos automotores e embarcações, serviços de táxi, pedágio, estacionamento e passagens terrestres.
+
+### Perguntas a ser respondidas na analise:
+1. Quais são os deputados que gastaram mais dinheiro da CEAP? Quais são os mais econômicos?
+2. Quais os estados cujos deputados gastam mais no exterior? Quais os estados cujos deputados gastam menos no exterior?
+3. Quais os partidos cujos parlamentares mais usam CEAP no estado da Paraíba? Quais são os que menos usam? Mesmas perguntas considerando valores em R$
+4. Quais os deputados que mais ultrapassam o limite de CEAP do seu estado? 
+5. Quais estados cujos parlamentares gastam mais com passagens aéreas?
+6. Escolha três partidos e responda: Quais são os tipos de despesa mais utilizados no uso da CEAP pelos deputados desses partidos? Mesma pergunta considerando valores em R$.
+
+### Descrição dos dados
+Os dados foram coletados do site de transparência da Câmara e foram tratados. Também foi considerado um conjunto de dados contendo o limite do CEAP por estado.
+```{r}
+date <- read_csv(here::here("date/dadosCEAP.csv"),
+                 progress = F,
+                 col_types = cols(
+                   nomeParlamentar = col_character(),
+                   idCadastro = col_integer(),
+                   sgUF = col_character(),
+                   sgPartido = col_character(),
+                   tipoDespesa = col_character(),
+                   especDespesa = col_character(),
+                   fornecedor = col_character(),
+                   CNPJCPF = col_character(),
+                   tipoDocumento = col_integer(),
+                   dataEmissao = col_character(),
+                   valorDocumento = col_double(),
+                   valorGlosa = col_integer(),
+                   valorLíquido = col_double())) %>%
+  mutate(dataEmissao = parse_date_time(dataEmissao,"%Y-%m-%d %H:%M:%S"),
+         year_month = paste(lubridate::year(dataEmissao),
+                            lubridate::month(dataEmissao),sep = "-"),
+         tipoDespesa = toupper(tipoDespesa))
+limiteCeap <- read_csv("date/limiteMensalCEAP.csv")
+
+date %>%
+  full_join(limiteCeap, by = c("sgUF" = "UF")) -> date
+```
+
+Uma descrição sobre as colunas dos dados se encontra abaixo:
+
+![](img.png)
+
+## Quais são os deputados que gastaram mais dinheiro da CEAP? Quais são os mais econômicos?
+Para responder essa pergunta iremos separar em dois grupos considerando os que mais gastaram e o que menos gastaram e assim gerar um Top 3 respectivamente de cada grupo.
+
+```{r}
+gastadores <- date %>%
+              group_by(nomeParlamentar) %>% #Agrupando por nome
+              summarise(total = sum(valorLíquido)) %>% #Criando a o valor total referendo aos gastos
+              arrange(-total) %>% # Ordenado do maior para o menor
+              slice(1:3) # Retirando o top 3.
+
+economistas <- date %>%
+              group_by(nomeParlamentar) %>% #Agrupando por nome
+              summarise(total = sum(valorLíquido)) %>% #Criando a o valor total referendo aos gastos
+              filter(total >= 0) %>% # Filtrando os valores negativos
+              arrange(total) %>% # Ordenado do menor para o maior
+              slice(1:3) # Retirando o top 3.
+  
+parlamentares <- full_join(gastadores,economistas) #Dando merge nos dois dataset
+
+parlamentares %>% ggplot(aes(x =  reorder(nomeParlamentar,total), y = total, ymax = total, ymin = 0)) + 
+   geom_point(size = 2) + 
+    geom_linerange(size = .3) +
+   coord_flip()
+
+```
+
+Observamos os 3 parlamentares que mais gastaram vemos que as suas despesas ultrapassam 1 milhão de reais, sendo assim, considerando um salário bruto de R$ 26.723,12 podemos observar que só em cota parlamentar tais parlamentares chegaram a gastar cerca de 55 vezes mais do que seu salário bruto.
+Como podemos observar existe uma disparidade entre o que mais gastaram e o que menos gastaram, nesse caso observamos que não ficou muito intuitivo a visualização dos parlamentares que menos gastaram para iremos gerar um novo gráfico para observar a diferença.
+```{r}
+economistas %>%  ggplot(aes(x =  reorder(nomeParlamentar,total), y = total, ymax = total, ymin = 0)) + 
+   geom_point(size = 2) + 
+    geom_linerange(size = .3) +
+   coord_flip()
+
+```
+
+Como podemos observar o parlamentar camilo cola gastou um valor bem simbólico mais precisamente R$ 0.62 reais, já os demais gastaram algo entre R$ 10,00 - R$ 20,00, em linhas gerais a diferença entre o que menos gastou e o que mais gastou é algo entre R$ 1485078.31 (um) valor bem alto.
+Com isso podemos observar que existe uma diferença de gasto considerado entre os parlamentares.
+
+## Quais os estados cujos deputados gastam mais no exterior? Quais os estados cujos deputados gastam menos no exterior?
+Para responder essa pergunta iremos observar o gasto com essa despesa considerando o seu tipo, para essa pergunta iremos utiliza o tipoDocumento = 2, onde se refere a despesa no exterior, e assim considerando os estados para observar qual o que mais gastou com essas despesas.
+
+```{r}
+estadoExterior <- date %>%
+            filter(tipoDocumento == 2) %>% #Filtrando pelo tipo de documento 2 == Despesa exterior
+            group_by(sgUF) %>% # Filtrando por Estado
+              summarise(total = sum(valorLíquido)) %>% #Criando a o valor total referendo aos gastos daquele tipo de despesa
+              arrange(-total) # Ordenado do maior para o menor
+              
+
+
+estadoExterior %>% ggplot(aes(x =  reorder(sgUF,total), y = total, ymax = total, ymin = 0)) + 
+   geom_point(size = 2) + 
+    geom_linerange(size = .3) +
+   coord_flip()
+```
+
+Como podemos observar o estado de São Paulo é o que mais gasta com esse tipo de despesas, um valor quase 2050 vez maior do que Maranhão que é o estado que menos gastou com esse tipo de despesa. Desse modo, podemos observar que a soma total dessas despesas chega ao valor de R$ 810.000,00 (um) valor bem alto considerando.
+Relacionado ao assunto encontramos denuncias já realizadas e reportada onde foram encontrados despesas relacionado a compras em Las Vega, já denunciada pelo software chamado serenata do amor, sendo assim observamos que tais dispersas nem sempre se refere a algo que realmente relacionado as atividades parlamentares, tais informações podem ser encontradas detalhada [aqui](http://g1.globo.com/distrito-federal/noticia/2016/10/programa-para-vigiar-gastos-de-politicos-flagra-compra-em-las-vegas.html)
+Uma curiosidade refere-se ao estado do Maranhão que menos gastou, onde as despesas se refere a fast-food.
+## Quais os partidos cujos parlamentares mais usam CEAP no estado da Paraíba? Quais são os que menos usam? Mesmas perguntas considerando valores em R$. 
+
+Para essa pergunta iremos filtrar todas as despesas relacionado a parlamentares do estado da Paraíba e assim vê de acordo com os partidos quais mais gastou.
+```{r}
+partidosgastadores <- date %>%
+                      filter(sgUF == "PB") %>% # Filtrando pelo estado da PB
+                      group_by(sgPartido) %>% # Agrupando por partido
+                      summarise(total = sum(valorLíquido)) %>% #Criando a o valor total referendo aos gastos
+                      arrange(-total) # Ordenado do maior para o menor
+
+partidosgastadores %>% ggplot(aes(x =  reorder(sgPartido,total), y = total, ymax = total, ymin = 0)) + 
+   geom_point(size = 2) + 
+    geom_linerange(size = .3) +
+   coord_flip() 
+```
+
+Como podemos observar o PMDB é o partido que mais gasta no estado da Paraíba, com uma diferença bem considerável em relação aos demais.
+
+Iremos analisar o porquê de toda essa diferença, uma das coisas que analisamos é o número de parlamentares desse partido no estado da Paraíba.
+
+Para observar o número de candidatos observamos está tabela e vê como anda a distribuição desse.
+```{r}
+date %>%
+     filter(sgUF == "PB") %>% # Filtrando pelo estado da PB
+      group_by(sgPartido,nomeParlamentar) %>% # Agrupando por nome e partido do candidato
+      summarise(count = n()) # Contando quantas requisiões de despesas 
+```
+
+Como podemos observar o partido do PMDB possui um número maior de parlamentares em consequentemente ele teria um número maior de gastos mesmo já que 30 % dos parlamentares são deste partido.
+Observamos também que a quantidade de despesas dos candidatos é bem parecida até mesmo os candidatos que menos gastam as suas despesas se assemelham. 
+## Quais os deputados que mais ultrapassam o limite de CEAP do seu estado?
+Para isso iremos vericar quais candidatos ultrapassaram o total que refere-se a soma dos valores liquidos referente-se a gastos de cada canditado e comparar com o [limite do CEAP](http://www2.camara.leg.br/comunicacao/assessoria-de-imprensa/cota-parlamentar) referente ao seu estado.
+
+```{r}
+date %>%
+  group_by(sgUF,idCadastro,year_month,          
+           nomeParlamentar,limite_mensal) %>%   #Agrupando por Estado,idCadastro,Mês-Ano,Nome do parlamentar e Limite Mensal
+  summarise(total = sum(valorLíquido)) %>%  #Criando a o valor total referendo aos gastos
+  filter(year_month != "NA-NA") %>%  # Retirando os Mês-Ano == "NA-NA"
+  filter(total > limite_mensal) %>%  # Filtrando os parlamentares que ultrapassaram seu limite mensal por mês
+  ungroup()  -> candidatos_mes_ano # Atribuindo ao data set candidatos_mes_ano
+
+candidatos_mes_ano %>%
+  group_by(idCadastro,nomeParlamentar) %>% # Agrupando pelo id e nome do parlamentar
+  arrange(desc(total)) %>%   #Ordenando do maior para o menor
+  slice(1) %>%                         
+  ungroup() %>%
+  top_n(n=5, wt=total) %>%  #Selecionando um top 5
+  mutate(diferenca = total - limite_mensal) %>% # Variavel diferença se refe a difereça entre o limite mensal e o total gasto no mês.
+  ggplot(aes(diferenca,
+             reorder(nomeParlamentar,
+                     diferenca))) +
+  geom_segment(aes(x = 1E5, 
+                   y =reorder(nomeParlamentar,
+                              diferenca),
+                   xend = diferenca,
+                   yend = nomeParlamentar),
+               color = "grey50",
+               size=0.35) +
+  geom_point(aes(color=sgUF),size=3) +
+  labs(x="Diferença (R$)",
+       y="Parlamentares")
+```
+
+Podemos observar 5 parlamentares que ultrapassaram os valores do CEAP referente ao seu estado em único mês, sendo assim observamos que todos os 5 ultrapassam a quantia de R$ 140.000,00 reais em relação ao limite do seu respectivo estado.
+O pastor eurico chega ultrapassa a quantia de RS 180.000,00 referente a um único mês o limite do ceap do seu estado de Pernambuco que é o valor de  R$ 41.676,80
+
+## Quais estados cujos parlamentares gastam mais com passagens aéreas?
+
+```{r}
+estadosviajados <- date %>% filter(tipoDespesa == "PASSAGENS AÉREAS") %>%  # Filtrando por despesa do tipo passagem area
+                   group_by(sgUF) %>% # Filtrando por estado
+                    summarise(total = sum(valorLíquido)) %>% na.omit()  # Soma do total de gasto com passagem por estado omitindo NA
+        
+estadosviajados %>% ggplot(aes(x =  reorder(sgUF,total), y = total, ymax = total, ymin = 0)) + 
+   geom_point(size = 2) + 
+    geom_linerange(size = .3) +
+  scale_size_date() +
+   coord_flip()
+
+```
+
+Observamos que o estado de São Paulo é o que mais gasta com esse tipo de despesa, mas considerando o número de parlamentares deste estado (70 parlamentares) e os mês presente neste conjunto de dados, e o considerando o preço médio dos gastos desse tipo de despesa que foi de R$ 997.68 e o preço médio de uma passagem ida e volta de São Paulo a Brasília (cidade onde se localiza a câmara dos deputados) o valor demonstrado não aparenta ter uma irregularidade.
+Por outro lado, o estado do Amazonas é o segundo que mais gasta com esse tipo de despesa e tal estado só possui 8 parlamentares na câmara o que leva a uma investigação um pouco mais relevante para descobrir o porquê do valor tão alto.
+Para isso, vamos separar esse estado e observar o número de vezes que os seus parlamentares viajaram.
+```{r}
+am <-  date %>% filter(tipoDespesa == "PASSAGENS AÉREAS", sgUF == "AM") #Filtrando por tipo de despesa e estado desejado
+
+am <- am %>% group_by(nomeParlamentar,tipoDespesa) %>% #Agrupando por parlamentar 
+      summarise(total = n()) #Soma da quantidade de vezes dessa despesa por parlamentar 
+
+am %>% ggplot(aes(x =  reorder(nomeParlamentar,total), y = total, ymax = total, ymin = 0)) + 
+   geom_point(size = 2) + 
+    geom_linerange(size = .3) +
+  scale_size_date() +
+   coord_flip()
+  
+```
+
+Como podemos observar o parlamentar Alfredo nascimento chegou a realizar 251 viajens, em média chega a fazer 8 viajens por mês.
+Ao certo não sabemos afirmar se tais viajens são realmente validas com o trabalho desenvolvido pelo parlamentar mas indetificamos como um grande outline que obteve grande peso em relação a distribuição por estado em relação aos gastos.
+
+Em relação ao estado que menos gastou observamos o Distrito Federal, algo que considero como o correto dado que a camera dos deputados se encontra no Distrito Federal os parlamentares desse estado não devia ter gastos considerado com esse tipo de despesa.
+
+## Escolha três partidos e responda: Quais são os tipos de despesa mais utilizados no uso da CEAP pelos deputados desses partidos? Mesma pergunta considerando valores em R$
+
+Para responder essa pergunta, escolhi tais partidos:
+
+* PT
+* PSDB
+* PMDB
+
+Tais partidos foram escolhidos considerando sua força política no pais e numero de parlamentares que o compõe.
+
+```{r}
+partidos <- date %>% filter(sgPartido %in% c("PT","PSDB","PMDB")) #Filtrando os 3 partidos escolhidos
+
+despesasCeap <- partidos %>% group_by(tipoDespesa) %>% summarise(count = n()) # Contando a quantidade de vezes que a despesa foi requerida
+
+despesasCeap %>% ggplot(aes(x =  reorder(tipoDespesa,count), y = count, ymax = count, ymin = 0)) + 
+   geom_point(size = 2) + 
+    geom_linerange(size = .3) +
+   coord_flip()
+```
+
+Como podemos observar a despesa de "Emissão de bilhete Aéreo" como a despesa mais recorrente entre esses partidos, em seguida por "Combustiveis e lubrificantes" e "Telefonia", vale reforça que os valores (refere)-se a quantidade de vezes que tais despesas forão requisitadas pelos parlamentares desses partidos.
+Para descobrir o valor em real que tais despesas tiveram, veremos o gráfico abaixo:
+
+```{r}
+despesasReais <- partidos %>% group_by(tipoDespesa) %>% summarise(total = sum(valorLíquido)) # Selecionando a despesa e a soma de gasto por ela.
+
+despesasReais %>% ggplot(aes(x =  reorder(tipoDespesa,total), y = total, ymax = total, ymin = 0)) + 
+   geom_point(size = 2) + 
+    geom_linerange(size = .3) + 
+   coord_flip()
+
+```
+
+Como podemos vê "Emissão Bilhete Aéreo" é o que mais gera despesa em reais, porém as despesas como "Combustiveis e lubrificantes" e "Telefonia" que são as que mais são requisitadas não estão entre as que mais gastam em valores em reais, podemos observar que a despesa de "Divulgação da Atividade Parlamentar" que ocupa a segunda posição de gastos em reais ela mesmo não sendo tão requisitada como mostramos no gráfico anterior ela é uma despesa que gera muito gasto em valor de real.
