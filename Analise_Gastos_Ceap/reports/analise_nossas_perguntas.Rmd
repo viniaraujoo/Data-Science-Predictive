@@ -47,7 +47,7 @@ date <- read_csv(here::here("date/dadosCEAP.csv"),
          year_month = paste(lubridate::year(dataEmissao),
                             lubridate::month(dataEmissao),sep = "-"),
          tipoDespesa = toupper(tipoDespesa))
-limiteCeap <- read_csv("date/limiteMensalCEAP.csv")
+limiteCeap <- read_csv("../date/limiteMensalCEAP.csv")
 
 date %>%
   full_join(limiteCeap, by = c("sgUF" = "UF")) -> date

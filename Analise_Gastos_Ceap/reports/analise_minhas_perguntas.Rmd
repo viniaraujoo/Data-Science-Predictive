@@ -1,0 +1,87 @@
+---
+title: "Analise_Gastos_Ceap_Minhas_Perguntas"
+author: "Vinicius Brandão"
+date: "05/09/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(readr)
+library(tidyverse)
+library(lubridate)
+options(scipen = 999)
+library(highcharter)
+library(xts)
+```
+
+## Descrição do Problema
+Analise realizada para a disciplina de Ciência de dados Preditiva (Periodo: 2018.2) e tem como principal objetivo responder determinadas perguntas sobre o conjunto de dados referentes a gastos de deputados relacionados a atividade parlamentar utilizando o CEAP(cota para o exercício da atividade parlamentar).
+
+
+**Ceap:** É uma cota única mensal destinada a custear os gastos dos deputados exclusivamente vinculados ao exercício da atividade parlamentar. Exemplos de despesa desse tipo são: passagens aéreas, telefonia, serviços postais, manutenção de escritórios de apoio à atividade parlamentar, assinatura de publicações, fornecimento de alimentação ao parlamentar, hospedagem, outras despesas com locomoção, contemplando locação ou fretamento de aeronaves, veículos automotores e embarcações, serviços de táxi, pedágio, estacionamento e passagens terrestres.
+
+
+### Descrição dos dados
+Os dados foram coletados do site de transparência da Câmara e foram tratados. Também foi considerado um conjunto de dados contendo o limite do CEAP por estado.
+```{r cars}
+date <- read_csv(here::here("date/dadosCEAP.csv"),
+                 progress = F,
+                 col_types = cols(
+                   nomeParlamentar = col_character(),
+                   idCadastro = col_integer(),
+                   sgUF = col_character(),
+                   sgPartido = col_character(),
+                   tipoDespesa = col_character(),
+                   especDespesa = col_character(),
+                   fornecedor = col_character(),
+                   CNPJCPF = col_character(),
+                   tipoDocumento = col_integer(),
+                   dataEmissao = col_character(),
+                   valorDocumento = col_double(),
+                   valorGlosa = col_integer(),
+                   valorLíquido = col_double())) %>%
+  mutate(dataEmissao = parse_date_time(dataEmissao,"%Y-%m-%d %H:%M:%S"),
+         year_month = paste(lubridate::year(dataEmissao),
+                            lubridate::month(dataEmissao),sep = "-"),
+         tipoDespesa = toupper(tipoDespesa))
+limiteCeap <- read_csv("../date/limiteMensalCEAP.csv")
+
+date %>%
+  full_join(limiteCeap, by = c("sgUF" = "UF")) -> date
+```
+
+Uma descrição sobre as colunas dos dados se encontra abaixo:
+
+![](img.png)
+
+## Perguntas a ser respondidas
+* Existe algum periodo de tempo em que os gastos foram mais recorrentes?
+* Durante a disputa eleitoral municipal de 2016 os gastos do Ceap foram maiores? Qual tipo de despesa foram mais recorrentes?
+
+
+### Existe algum periodo de tempo em que os gastos foram mais recorrentes?
+
+Para responder essa pergunta, primeiro iremos analisar a distribuição dos gastos de acordo com o periodo do tempo e assim observar como está a a distribuição dos gasto do Ceap de acordo com o periodo de tempo de 2014 á 2017 e assim detectar alguma irregularidade nesta distribuição.
+
+```{r}
+date_total <- date %>%
+          mutate(data = as.Date(strptime(dataEmissao, "%Y-%m-%d"))) %>%
+          group_by(data) %>%
+          summarise(total = sum(valorLíquido)) %>%
+          na.omit()
+
+dados.summ.stock <- date_total %>%
+  remove_rownames %>% 
+  column_to_rownames(var="data")
+
+dados.summ.stock.xts <- as.xts(dados.summ.stock)
+```
+
+```{r}
+highchart(type = "stock") %>% 
+  hc_title(text = "Gastos do Ceap no periodo de 2014 á 2017") %>% 
+  hc_subtitle(text = "Valor em real dos gastos ceap") %>% 
+  hc_add_series(dados.summ.stock.xts, id = "total", name = "GastosCeap") 
+```
+
+Considerando a distribuição dos dados por ano observamos que o ano de 2017 possui uma variação maior nos gastos do que os anos anteriores,
