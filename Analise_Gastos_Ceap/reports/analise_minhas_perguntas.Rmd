@@ -12,6 +12,7 @@ library(lubridate)
 options(scipen = 999)
 library(highcharter)
 library(xts)
+library(plotly)
 ```
 
 ## Descrição do Problema
@@ -84,4 +85,57 @@ highchart(type = "stock") %>%
   hc_add_series(dados.summ.stock.xts, id = "total", name = "GastosCeap") 
 ```
 
-Considerando a distribuição dos dados por ano observamos que o ano de 2017 possui uma variação maior nos gastos do que os anos anteriores,
+Considerando a distribuição dos dados por ano observamos que o ano de 2017 possui uma variação maior nos gastos do que os anos anteriores, podemos observar também que o ano de 2016 obteve grande picos em relação aos gasto, caratcterizando grandes gastos em determinadas datas mas quando observamos o ano de 2016 como todos observamos que tais valores como outlines (não recorrentes).
+Diante disso iremos analisar o poeque o periodo referente ao ano de 2017 obteve tantos gasto e espicificamente quais despesas foram mais recorrente em relação a esse período.
+Para isso iremos plotar um gráfico e vê como foi a distribuição ao longo dos meses relacionados a 2017.
+
+```{r}
+total_2017 <- date %>%
+              filter(year(dataEmissao) == "2017") %>%
+              group_by(month(dataEmissao)) %>%
+              summarise(total = sum(valorLíquido))
+
+mymonths <- c("Janeiro","Fevereiro","Março",
+              "Abril","Maio","Junho",
+              "Julho","Agosto","Setembro",
+              "Outubro","Novembro","Desembro")
+
+total_2017 <- total_2017 %>% mutate(mes = mymonths[total_2017$`month(dataEmissao)`]) 
+
+total_2017 %>% 
+  plot_ly(x = ~ `month(dataEmissao)`,
+             y = ~total,
+            type = "scatter",
+            mode = 'lines',
+            source = "temporal",
+            text = ~paste("Valor gasto em reais:",total,
+                          "\nMes:", mes ))  
+```
+
+Como podemos observar a distribuição em relação ao mês de setembro é baste alta entre o periodo do mês de março até agosto.
+Observamos o quanto os gasto do Ceap aumentou entre Janeiro e Março e o quanto ele caiu de agosto para setembro, algo bastante curioso dado que a paior parte do tempo os valores se mantiveram entre 18 M e 20 M mas no mês de setembro especifico o gasto caiu para algo entorno de 7 M uma queda de 11 M de reais.
+Podemos associar tal diferença de valor depôs da denuncia que o programa de tv Fantastico fez utilizando a iteligência artificial [operação serenata de amor](https://pt.wikipedia.org/wiki/Opera%C3%A7%C3%A3o_Serenata_de_Amor) que tem como objetivo fiscalizar esses gastos do Ceap e produzir denuncias sobre gastos que convem desnecessario. Essa reportagem pode ser [assistida aqui](http://g1.globo.com/fantastico/noticia/2017/11/brasileiros-se-mobilizam-para-fiscalizar-autoridades-e-combater-corrupcao.html) .
+
+No mas, iremos investigar se realmente 2017 foi o periodo de maior gasto, sendo assim iremos selecionar os quatro anos presente nos conjunto de dados e observar qual teve um maior gasto no Ceap para concluimos.
+
+```{r}
+anos <- date %>%
+        group_by(year(dataEmissao)) %>%
+        summarise(total = sum(valorLíquido)) %>%
+        na.omit()
+
+anos %>%
+  ggplot(aes(x =  reorder(`year(dataEmissao)`,total), y = total, ymax = total, ymin = 0)) + 
+   geom_point(size = 2) + 
+    geom_linerange(size = .3) +
+   coord_flip()
+```
+
+Como podemos observar o ano de 2016 em sua totalidade teve mais gastos do que os demas, porém vale destacar que no conjunto de dados só os anos de 2015 e 2016 que esta o número referente a todos os meses do ano. 
+O ano de 2017 que visualmente se mostrava com o que mais gastava em sua totalidade não foi tão grande quanto os demas mesmo considerando que 2017 está com ausencia do periodo de outubro a dezembro mas como vimos a sequencia de acordo com o ano em 2017 estava caindo.
+Por fim, outro fato que pode ter levado a 2016 ser um ano de muito gasto foram as eleições municipais que pode ter alguma diferencia para isso iremos investigar mais abaixo. 
+
+
+## Durante a disputa eleitoral municipal de 2016 os gastos do Ceap foram maiores? Qual tipo de despesa foram mais recorrentes?
+
+
