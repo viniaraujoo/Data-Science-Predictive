@@ -9,10 +9,10 @@ output: html_document
 library(readr)
 library(tidyverse)
 library(lubridate)
-options(scipen = 999)
 library(highcharter)
 library(xts)
 library(plotly)
+options(scipen = 999)
 ```
 
 ## Descrição do Problema
@@ -85,8 +85,8 @@ highchart(type = "stock") %>%
   hc_add_series(dados.summ.stock.xts, id = "total", name = "GastosCeap") 
 ```
 
-Considerando a distribuição dos dados por ano observamos que o ano de 2017 possui uma variação maior nos gastos do que os anos anteriores, podemos observar também que o ano de 2016 obteve grande picos em relação aos gasto, caratcterizando grandes gastos em determinadas datas mas quando observamos o ano de 2016 como todos observamos que tais valores como outlines (não recorrentes).
-Diante disso iremos analisar o poeque o periodo referente ao ano de 2017 obteve tantos gasto e espicificamente quais despesas foram mais recorrente em relação a esse período.
+Considerando a distribuição dos dados por ano observamos que o ano de 2017 possui uma variação maior nos gastos do que os anos anteriores, podemos observar também que o ano de 2016 obteve grandes picos em relação aos gastos, caracterizando grandes gastos em determinadas datas, mas quando observamos o ano de 2016 como todos observamos que tais valores como outlines (não recorrentes).
+Diante disso iremos analisar o porque o período referente ao ano de 2017 obteve tantos gasto e especificamente quais despesas foram mais recorrente em relação a esse período.
 Para isso iremos plotar um gráfico e vê como foi a distribuição ao longo dos meses relacionados a 2017.
 
 ```{r}
@@ -112,12 +112,11 @@ total_2017 %>%
                           "\nMes:", mes ))  
 ```
 
-Como podemos observar a distribuição em relação ao mês de setembro é baste alta entre o periodo do mês de março até agosto.
-Observamos o quanto os gasto do Ceap aumentou entre Janeiro e Março e o quanto ele caiu de agosto para setembro, algo bastante curioso dado que a paior parte do tempo os valores se mantiveram entre 18 M e 20 M mas no mês de setembro especifico o gasto caiu para algo entorno de 7 M uma queda de 11 M de reais.
-Podemos associar tal diferença de valor depôs da denuncia que o programa de tv Fantastico fez utilizando a iteligência artificial [operação serenata de amor](https://pt.wikipedia.org/wiki/Opera%C3%A7%C3%A3o_Serenata_de_Amor) que tem como objetivo fiscalizar esses gastos do Ceap e produzir denuncias sobre gastos que convem desnecessario. Essa reportagem pode ser [assistida aqui](http://g1.globo.com/fantastico/noticia/2017/11/brasileiros-se-mobilizam-para-fiscalizar-autoridades-e-combater-corrupcao.html) .
+Como podemos observar a distribuição em relação ao mês de setembro é baste alta entre o período do mês de março até agosto.
+Observamos o quanto os gastos do Ceap aumentou entre Janeiro, Março e o quanto ele caiu de agosto para setembro, algo bastante curioso dado que a maior parte do tempo os valores se mantiveram entre 18 M e 20 M, mas no mês de setembro especifico o gasto caiu para algo entorno de 7 M uma queda de 11 M de reais.
+Podemos associar tal diferença de valor depôs da denúncia que o programa de tv Fantástico fez utilizando a inteligência artificial [operação serenata de amor](https://pt.wikipedia.org/wiki/Opera%C3%A7%C3%A3o_Serenata_de_Amor) que tem como objetivo fiscalizar esses gastos do Ceap e produzir denuncias sobre gastos que convem desnecessário. Essa reportagem pode ser [assistida aqui](http://g1.globo.com/fantastico/noticia/2017/11/brasileiros-se-mobilizam-para-fiscalizar-autoridades-e-combater-corrupcao.html) .
 
-No mas, iremos investigar se realmente 2017 foi o periodo de maior gasto, sendo assim iremos selecionar os quatro anos presente nos conjunto de dados e observar qual teve um maior gasto no Ceap para concluimos.
-
+No, mas iremos investigar se realmente 2017 foi o período de maior gasto, sendo assim iremos selecionar os quatro anos presentes nos conjuntos de dados e observar qual teve um maior gasto no Ceap para concluímos.
 ```{r}
 anos <- date %>%
         group_by(year(dataEmissao)) %>%
@@ -131,20 +130,20 @@ anos %>%
    coord_flip()
 ```
 
-Como podemos observar o ano de 2016 em sua totalidade teve mais gastos do que os demas, porém vale destacar que no conjunto de dados só os anos de 2015 e 2016 que esta o número referente a todos os meses do ano. 
-O ano de 2017 que visualmente se mostrava com o que mais gastava em sua totalidade não foi tão grande quanto os demas mesmo considerando que 2017 está com ausencia do periodo de outubro a dezembro mas como vimos a sequencia de acordo com o ano em 2017 estava caindo.
-Por fim, outro fato que pode ter levado a 2016 ser um ano de muito gasto foram as eleições municipais que pode ter alguma diferencia para isso iremos investigar mais abaixo. 
+Como podemos observar o ano de 2016 na sua totalidade teve mais gastos do que os demais, porém, vale destacar que no conjunto de dados só os anos de 2015 e 2016 que esta o número referente a todos os meses do ano.
+O ano de 2017 que visualmente se mostrava com o que mais gastava na sua totalidade não foi tão grande quanto os demais mesmo considerando que 2017 está com ausência do período de outubro a dezembro, mas como vimos a sequência de acordo com o ano em 2017 estava caindo.
+Por fim, outro fato que pode ter levado a 2016 ser um ano de muito gasto foram as eleições municipais que pode ter alguma diferença para isso iremos investigar mais abaixo.
 
 
 ## Durante a disputa eleitoral municipal de 2016 os gastos do Ceap foram maiores? Qual tipo de despesa foram mais recorrentes?
 
-Para responder essa pergunta iremos separar um conjunto de dados refrente as eleições de 2016 considerando a data de inicio das propagandas e o fim que seria um dia depôs do segundo turno das eleições. Utilizamos com refêrencia esse [site](http://g1.globo.com/politica/eleicoes/2016/noticia/2016/01/eleicoes-2016-calendario-e-regras.html) .
+Para responder essa pergunta iremos separar um conjunto de dados referente as eleições de 2016 considerando a data de início das propagandas e o fim que seria um dia depôs do segundo turno das eleições. Utilizamos com referencia esse [site](http://g1.globo.com/politica/eleicoes/2016/noticia/2016/01/eleicoes-2016-calendario-e-regras.html) .
 
 ```{r}
 eleicoes_2016 <- date %>% filter(year_month %in% c("2016-8","2016-9","2016-10"))
 ```
 
-Depôs disso, iremos analisar como foi a ditribuição de gastos durante esses meses.
+Depôs disso, iremos analisar como foi a distribuição de gastos durante esses meses.
 
 ```{r}
 eleicoes_2016 %>%
@@ -157,8 +156,8 @@ eleicoes_2016 %>%
   labs(x = "Mês", y = "Total gasto no mês")
 ```
 
-Como podemos observar os meses que mais tiveram gasto refere-se ao primeiro e segundo mês de campanha, podemos associar o primeiro mês ao periodo de registro de candidato, comissões partidarias entre outros, já o ultimo mês refere-se a reta final das campanhas eleitorais considerando que esse pasrlamentares podem está dando apoio aos candidatos.
-Mas não podemos afirmar que as eleições foram a causa desse aumento, para ,melorar nossa analise iremos observar quais tipos de despesas foram mais recorrentes nesse periodo.
+Como podemos observar os meses que mais tiveram gasto refere-se ao primeiro e segundo mês de campanha, podemos associar o primeiro mês ao período de registo de candidato, comissões partidárias entre outros, já o último mês refere-se a reta final das campanhas eleitorais considerando que esse parlamentares podem está dando apoio aos candidatos.
+Mas não podemos afirmar que as eleições foram a causa desse aumento, para,melorar nossa análise iremos observar quais tipos de despesas foram mais recorrentes nesse período.
 
 ```{r}
 eleicoes_2016 %>%
@@ -171,8 +170,8 @@ eleicoes_2016 %>%
   labs(x = "Tipo de pesa", y = "Total de recorrência")
 ```
 
-Como podemos observar a dispesas do tipo de "Emissão bilhete aéreo" é disparada a depesas que mais se repete, o que era de se esperar considerando que os parlamentares vão para os seus estados ao apoio dos candidatos, mas não podemos utilizar isso como justificativa porque como vimos anteriomente nessa [analise](https://rpubs.com/viniciusaraujo/416471) em todo o conjunto de dados a dispesa de "Emissão bilhete aéreo" é a que mais está presente no conjunto.
-Para vê se se existe uma diferença realiconada a esses meses no ano de 2016, observamos como foi a distribuição de gastos total do Ceap em todo o ano de 2016.
+Como podemos observar a despesas do tipo de "Emissão bilhete aéreo" é disparada a despesas que mais se repete, o que era de se esperar considerando que os parlamentares vão para os seus estados ao apoio dos candidatos, mas não podemos utilizar isso como justificativa porque como vimos anteriormente nessa [analise](https://rpubs.com/viniciusaraujo/416471) em todo o conjunto de dados a despesa de "Emissão bilhete aéreo" é a que mais está presente no conjunto.
+Para vê se se existe uma diferença relacionada a esses meses no ano de 2016, observamos como foi a distribuição de gastos total do Ceap em todo o ano de 2016.
 
 ```{r}
 total_2016 <- date %>%
@@ -197,14 +196,14 @@ total_2016 %>%
                           "\nMes:", mes ))  
 ```
 
-Podemos observar que os gastos refrentes ao periodo da eleição permaneceu os mesmo em relação a distribuição de gastos de acordo com os meses de 2016, apenas em detaque ao mês de dexembro que foi o mês onde mais se tiveram gastos no ano de 2016. Como falamos anteriomente o ano de 2016 foi o que mais teve gastos no periodo de 2014 á 2017.
-Como vimos, as eleições de 2016 não tiveram impacto nos gastos do ano de 2016, apenas o mês de dezembro que se destacou com isso iremos analisar o que levou aos gastos execessivos nesse mês.
+Podemos observar que os gastos referentes ao período da eleição permaneceu os mesmo em relação à distribuição de gastos de acordo com os meses de 2016, apenas em destaque ao mês de dezembro que foi o mês onde mais se tiveram gastos no ano de 2016. Como falamos anteriormente o ano de 2016 foi o que mais teve gastos no período de 2014 a 2017.
+Como vimos, as eleições de 2016 não tiveram impacto nos gastos do ano de 2016, apenas o mês de dezembro que se destacou com isso iremos analisar o que levou aos gastos excessivos nesse mês.
 
 ```{r}
 dezembro_2016 <- date %>% filter(year_month == "2016-12")
 ```
 
-Após selecionarmos o conjunto refrente ao mês de dezembro de 2016, iremos observar quais depesas mais se repetira nesse mês.
+Após selecionarmos o conjunto referente ao mês de dezembro de 2016, iremos observar quais despesas mais se repetira nesse mês.
 
 ```{r}
 dezembro_2016 %>%
@@ -217,7 +216,7 @@ dezembro_2016 %>%
   labs(x = "Tipo de pesa", y = "Total de recorrência")
 ```
 
-Como observamos as depesas mais recorrentes se mantem as mesmas refrentes a todo o ano de 2016.
+Como observamos as despesas mais recorrentes se mantêm as mesmas referentes a todo o ano de 2016.
 Agora iremos analisar quais candidatos mais gastaram nesse mês.
 
 ```{r}
@@ -235,5 +234,5 @@ pai_pai_noel %>%
   labs(x = "Parlamentar", y = "Total de despesas em R$")
 ```
 
-Como podemos vê, selecionados os 5 parlamentares que mais gastaram no mês de dezembro e observamos que todo ultraparam a quantia de R$ 160.000,00 cada um, tal quantia é muito maior do que o limite estabelecido.
-Por fim, obseervamos ao longo dos anos de 2014 á 2017 como foi os gastos do Ceap pelos parlamentares e vimos que as eleições não foi um fator que contribui para altos gasto no ano de 2016 e de acordo com essa distribuição vimos que o mês de dezembro como algo fora do comum e listamos alguns parlamentares que de certa menira com seus gastos abusivos contribuiu para isso.
+Como podemos vê, selecionados os 5 parlamentares que mais gastaram no mês de dezembro e observamos que todo ultrapassaram a quantia de R$ 160.000,00 cada um, tal quantia é muito maior do que o limite estabelecido.
+Por fim, observamos ao longo dos anos de 2014 a 2017 como foi os gastos do Ceap pelos parlamentares e vimos que as eleições não foram um fator que contribui para altos gastos no ano de 2016 e de acordo com essa distribuição viu que o mês de dezembro como algo fora do comum e listamos alguns parlamentares que de certa maneira com os seus gastos abusivos contribuíram para isso.
