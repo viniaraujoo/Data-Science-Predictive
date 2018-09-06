@@ -62,7 +62,7 @@ Uma descrição sobre as colunas dos dados se encontra abaixo:
 
 ### Existe algum periodo de tempo em que os gastos foram mais recorrentes?
 
-Para responder essa pergunta, primeiro iremos analisar a distribuição dos gastos de acordo com o periodo do tempo e assim observar como está a a distribuição dos gasto do Ceap de acordo com o periodo de tempo de 2014 á 2017 e assim detectar alguma irregularidade nesta distribuição.
+Para responder essa pergunta, primeiro iremos analisar a distribuição dos gastos de acordo com o período do tempo e assim observar como está à distribuição dos gastos do Ceap de acordo com o período de tempo de 2014 a 2017 e assim detectar alguma irregularidade nesta distribuição.
 
 ```{r}
 date_total <- date %>%
@@ -138,4 +138,102 @@ Por fim, outro fato que pode ter levado a 2016 ser um ano de muito gasto foram a
 
 ## Durante a disputa eleitoral municipal de 2016 os gastos do Ceap foram maiores? Qual tipo de despesa foram mais recorrentes?
 
+Para responder essa pergunta iremos separar um conjunto de dados refrente as eleições de 2016 considerando a data de inicio das propagandas e o fim que seria um dia depôs do segundo turno das eleições. Utilizamos com refêrencia esse [site](http://g1.globo.com/politica/eleicoes/2016/noticia/2016/01/eleicoes-2016-calendario-e-regras.html) .
 
+```{r}
+eleicoes_2016 <- date %>% filter(year_month %in% c("2016-8","2016-9","2016-10"))
+```
+
+Depôs disso, iremos analisar como foi a ditribuição de gastos durante esses meses.
+
+```{r}
+eleicoes_2016 %>%
+  group_by(year_month) %>%
+  summarise(total = sum(valorLíquido)) %>%
+  ggplot(aes(x =  reorder(year_month,total), y = total, ymax = total, ymin = 0)) + 
+   geom_point(size = 2) + 
+    geom_linerange(size = .3) +
+   coord_flip() +
+  labs(x = "Mês", y = "Total gasto no mês")
+```
+
+Como podemos observar os meses que mais tiveram gasto refere-se ao primeiro e segundo mês de campanha, podemos associar o primeiro mês ao periodo de registro de candidato, comissões partidarias entre outros, já o ultimo mês refere-se a reta final das campanhas eleitorais considerando que esse pasrlamentares podem está dando apoio aos candidatos.
+Mas não podemos afirmar que as eleições foram a causa desse aumento, para ,melorar nossa analise iremos observar quais tipos de despesas foram mais recorrentes nesse periodo.
+
+```{r}
+eleicoes_2016 %>%
+  group_by(tipoDespesa) %>%
+  summarise(total = n()) %>%
+  ggplot(aes(x =  reorder(tipoDespesa,total), y = total, ymax = total, ymin = 0)) + 
+   geom_point(size = 2) + 
+    geom_linerange(size = .3) +
+   coord_flip() +
+  labs(x = "Tipo de pesa", y = "Total de recorrência")
+```
+
+Como podemos observar a dispesas do tipo de "Emissão bilhete aéreo" é disparada a depesas que mais se repete, o que era de se esperar considerando que os parlamentares vão para os seus estados ao apoio dos candidatos, mas não podemos utilizar isso como justificativa porque como vimos anteriomente nessa [analise](https://rpubs.com/viniciusaraujo/416471) em todo o conjunto de dados a dispesa de "Emissão bilhete aéreo" é a que mais está presente no conjunto.
+Para vê se se existe uma diferença realiconada a esses meses no ano de 2016, observamos como foi a distribuição de gastos total do Ceap em todo o ano de 2016.
+
+```{r}
+total_2016 <- date %>%
+              filter(year(dataEmissao) == "2016") %>%
+              group_by(month(dataEmissao)) %>%
+              summarise(total = sum(valorLíquido))
+
+mymonths <- c("Janeiro","Fevereiro","Março",
+              "Abril","Maio","Junho",
+              "Julho","Agosto","Setembro",
+              "Outubro","Novembro","Desembro")
+
+total_2016 <- total_2016 %>% mutate(mes = mymonths[total_2016$`month(dataEmissao)`]) 
+
+total_2016 %>% 
+  plot_ly(x = ~ `month(dataEmissao)`,
+             y = ~total,
+            type = "scatter",
+            mode = 'lines',
+            source = "temporal",
+            text = ~paste("Valor gasto em reais:",total,
+                          "\nMes:", mes ))  
+```
+
+Podemos observar que os gastos refrentes ao periodo da eleição permaneceu os mesmo em relação a distribuição de gastos de acordo com os meses de 2016, apenas em detaque ao mês de dexembro que foi o mês onde mais se tiveram gastos no ano de 2016. Como falamos anteriomente o ano de 2016 foi o que mais teve gastos no periodo de 2014 á 2017.
+Como vimos, as eleições de 2016 não tiveram impacto nos gastos do ano de 2016, apenas o mês de dezembro que se destacou com isso iremos analisar o que levou aos gastos execessivos nesse mês.
+
+```{r}
+dezembro_2016 <- date %>% filter(year_month == "2016-12")
+```
+
+Após selecionarmos o conjunto refrente ao mês de dezembro de 2016, iremos observar quais depesas mais se repetira nesse mês.
+
+```{r}
+dezembro_2016 %>%
+  group_by(tipoDespesa) %>%
+  summarise(total = n()) %>%
+  ggplot(aes(x =  reorder(tipoDespesa,total), y = total, ymax = total, ymin = 0)) + 
+   geom_point(size = 2) + 
+    geom_linerange(size = .3) +
+   coord_flip() +
+  labs(x = "Tipo de pesa", y = "Total de recorrência")
+```
+
+Como observamos as depesas mais recorrentes se mantem as mesmas refrentes a todo o ano de 2016.
+Agora iremos analisar quais candidatos mais gastaram nesse mês.
+
+```{r}
+pai_pai_noel <- dezembro_2016 %>%
+                group_by(nomeParlamentar) %>% 
+                summarise(total = sum(valorLíquido)) %>%
+                arrange(-total) %>%
+                slice(1:5) 
+
+pai_pai_noel %>%
+  ggplot(aes(x =  reorder(nomeParlamentar,total), y = total, ymax = total, ymin = 0)) + 
+   geom_point(size = 2) + 
+    geom_linerange(size = .3) +
+   coord_flip() +
+  labs(x = "Parlamentar", y = "Total de despesas em R$")
+```
+
+Como podemos vê, selecionados os 5 parlamentares que mais gastaram no mês de dezembro e observamos que todo ultraparam a quantia de R$ 160.000,00 cada um, tal quantia é muito maior do que o limite estabelecido.
+Por fim, obseervamos ao longo dos anos de 2014 á 2017 como foi os gastos do Ceap pelos parlamentares e vimos que as eleições não foi um fator que contribui para altos gasto no ano de 2016 e de acordo com essa distribuição vimos que o mês de dezembro como algo fora do comum e listamos alguns parlamentares que de certa menira com seus gastos abusivos contribuiu para isso.
