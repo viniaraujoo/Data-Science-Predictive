@@ -10,18 +10,119 @@ library(reshape2)
 library(tidyverse)
 library(caret)
 library(lattice)
+library(gridExtra)
+options(scipen = 999)
 ```
 
 
 
 
 ```{r setup}
-dados_2006 <- read_csv('../data/eleicoes_2006.csv')
-dados_2006_2010 <- read_csv('../data/eleicoes_2006_e_2010.csv')
+eleicoes_data <- readr::read_csv(
+  here::here('data/eleicoes_2006_e_2010.csv'), 
+  local=readr::locale("br"),
+  col_types = cols(
+    ano = col_integer(),
+    sequencial_candidato = col_character(),
+    quantidade_doacoes = col_integer(),
+    quantidade_doadores = col_integer(),
+    total_receita = col_double(),
+    media_receita = col_double(),
+    recursos_de_outros_candidatos.comites = col_double(),
+    recursos_de_pessoas_fisicas = col_double(),
+    recursos_de_pessoas_juridicas = col_double(),
+    recursos_proprios = col_double(),
+    `recursos_de_partido_politico` = col_double(),
+    quantidade_despesas = col_integer(),
+    quantidade_fornecedores = col_integer(),
+    total_despesa = col_double(),
+    media_despesa = col_double(),
+    votos = col_integer(),
+    .default = col_character()))
 ```
 
 ```{r}
-dados_2006_2010[is.na(dados_2006_2010)] = 0
+eleicoes_data %>% glimpse()
 ```
+
+
+```{r}
+r1 <- eleicoes_data %>%
+  filter(ano == 2006) %>%
+  group_by(partido,ano) %>%
+  summarise(n = n()) %>%
+  ggplot(aes(reorder(partido,n), n)) +
+  geom_bar(stat = "identity") + 
+  theme(axis.text.x = element_text(angle = 90,
+                                   hjust = 1)) 
+
+r2 <- eleicoes_data  %>%
+  group_by(partido,ano) %>%
+  summarise(n = n()) %>%
+  ggplot(aes(reorder(partido,n), n)) +
+  geom_bar(stat = "identity") + 
+  theme(axis.text.x = element_text(angle = 90,
+                                   hjust = 1)) +
+  facet_grid(. ~ ano)
+
+
+grid.arrange(r1,r2)
+```
+
+
+```{r}
+eleicoes_data %>% 
+        ggplot(aes(quantidade_doadores)) +
+        geom_histogram(bins = 30) +
+        facet_grid(. ~ ano)
+        
+```
+
+
+```{r}
+eleicoes_data %>% 
+        ggplot(aes(total_receita)) +
+        geom_histogram(bins = 30) +
+        facet_grid(. ~ ano)
+```
+
+
+
+```{r}
+eleicoes_data %>% 
+        ggplot(aes(recursos_de_outros_candidatos.comites)) +
+        geom_histogram(bins = 30) +
+        facet_grid(. ~ ano)
+```
+
+```{r}
+eleicoes_data %>% 
+        ggplot(aes(recursos_proprios)) +
+        geom_histogram(bins = 30) +
+        facet_grid(. ~ ano)
+```
+
+
+
+
+```{r}
+eleicoes_data %>% 
+        ggplot(aes(total_despesa)) +
+        geom_histogram(bins = 30) +
+        facet_grid(. ~ ano)
+```
+
+
+```{r}
+eleicoes_data %>%
+  group_by(sexo,ano) %>%
+  summarise(n = n()) %>%
+  ggplot(aes(reorder(sexo,n), n)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Sexo", y = "Quantidade de candidatos desse sexo") +
+  facet_grid(.~ ano)
+```
+
+
 
 
