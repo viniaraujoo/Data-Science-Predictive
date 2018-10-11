@@ -61,6 +61,8 @@ eleicoes_data %>% glimpse()
 ```
 
 
+## Descrição dos dados
+
 ```{r}
 r1 <- eleicoes_data %>%
   filter(ano == 2006) %>%
@@ -164,47 +166,6 @@ eleicoes_data %>%
 ```
 
 
-```{r}
-require(GGally)
-
-eleicoes_data %>% 
-  filter(ano == 2006) %>%
-  select(-partido,
-         -uf,-nome,
-         -estado_civil,
-         -ocupacao,-ano,
-         -cargo,-grau,-sexo) %>%
-  na.omit() %>%
-  ggcorr(palette = "RdBu",
-         color = "grey50",
-         label = TRUE, hjust = 1,
-         label_size = 3, size = 4,
-         nbreaks = 5, layout.exp = 7) +
-  ggtitle("Gráfico de correlação eleições 2006")
-
-```
-
-
-
-
-```{r}
-eleicoes_data %>% 
-  filter(ano == 2010) %>%
-  select(-partido,
-         -uf,-nome,
-         -estado_civil,
-         -ocupacao,-ano,
-         -cargo,-grau,-sexo) %>%
-  na.omit() %>%
-  ggcorr(palette = "RdBu",
-         color = "grey50",
-         label = TRUE, hjust = 1,
-         label_size = 3, size = 4,
-         nbreaks = 5, layout.exp = 7) +
-  ggtitle("Gráfico de correlação eleições 2010")
-
-```
-
 
 ## Um modelo de regressão múltipla com todas as variáveis é plausível para explicar a variação em y (número de votos) em 2006? 
 
@@ -246,11 +207,12 @@ glance(mod_2010)
 
 Observamos que os valores de  medida de qualidade de ajuste do modelo (Multiple R-Squared) possui um valor baixo, assim como o Adj R-Squared, portanto um modelo considerando todas as variaveis não é muito plausivel.
 
-## Quais variáveis conseguem explicar melhor o número de votos?
+## Comparação das regressões construídas para 2006 e 2010. Quais as diferenças/semelhanças percebidas?
 
 Para responder essa pergunta, iremos nós basear em:
 
 + Criação do gráfico de resíduos dos modelos.
++ Quais variáveis conseguem explicar melhor o número de votos?
 + Comparação dos valores de R2 e RSE referente-se a cada ano.
 + Correlação entre as variaveis e a variavel voto.
 
@@ -284,45 +246,71 @@ Observamos no gráfico acima, que no modelo refrente a 2010 temos uma concetraç
 
 ### Comparação dos valores de R2 e RSE
 
+|        | Model_2006           | Model_2010  |
+| ------------- |:-------------:| -----:|
+| R2     | 0.5779| 0.5405 |
+| RSE     | 3213      |   3810 |
+| Adjusted R-squared  | 0.5487 |  0.5129|
 
-```{r}
-data <- eleicoes_data %>% 
-        filter(ano == 2006) %>%
-        mutate_at(.vars = vars(quantidade_doacoes,
-                          quantidade_doadores,
-                          total_receita,
-                          media_receita,
-                          sequencial_candidato,
-                          recursos_de_outros_candidatos.comites,
-                          recursos_de_pessoas_fisicas,
-                          recursos_de_pessoas_juridicas,
-                          recursos_proprios,
-                          recursos_de_partido_politico,
-                          quantidade_despesas,
-                          quantidade_fornecedores,
-                          total_despesa,
-                          media_despesa),
-             .funs = funs(as.numeric(scale(.))))
+
+Como podemos vê o valor de R2 é maior no modelo de 2006 e o valor do RSE é menor do modelo de 2006, então sabendo que quanto maior o R2 e menor o RSE melhor o modelo implica que o modelo de 2006 é melhor em comparativo com o de 2010.
+
+## Todas as variáveis são úteis para os modelos de regressão? Há variáveis redudantes?
+
+Para responder está pergunta iremos utilizar correlação entre as variaveis e a variavel votos. 
+
+```
+  Correlação entre duas variaveis:  + Quando uma delas está, de alguma forma,
+                                    relacionada com a outra.
+                                    + Quando a alteração no valor de uma
+                                    varíavel (dita independente) provoca
+                                    alterações no valor da outra variável
+                                    (dita dependente)
 ```
 
-
-
-
 ```{r}
-tidy(mod,conf.int = TRUE,conf.level = 0.95)
+require(GGally)
+
+eleicoes_data %>% 
+  filter(ano == 2006) %>%
+  select(-partido,
+         -uf,-nome,
+         -estado_civil,
+         -ocupacao,-ano,
+         -cargo,-grau,-sexo) %>%
+  na.omit() %>%
+  ggcorr(palette = "RdBu",
+         color = "grey50",
+         label = TRUE, hjust = 1,
+         label_size = 3, size = 4,
+         nbreaks = 5, layout.exp = 7) +
+  ggtitle("Gráfico de correlação eleições 2006")
 ```
 
+De adocordo com a correlação com a variavel votos, observamos que á variavel **sequencial_candidato** é redudante para o modelo de 2006 devido ao baixo valor.
 
 ```{r}
-tidy(mod_2006, 
-     conf.int = TRUE, 
-     conf.level = 0.95,
-     sep=":") %>%
-  arrange(desc(p.value)) %>%
-  slice(1:3) %>%
-  ggplot(aes(reorder(term,p.value), p.value)) +
-  geom_point(size = 2) +
-  labs(x = "Predictor variable",
-       y = "Estimated value (95% of confidence)")
+require(GGally)
+
+eleicoes_data %>% 
+  filter(ano == 2010) %>%
+  select(-partido,
+         -uf,-nome,
+         -estado_civil,
+         -ocupacao,-ano,
+         -cargo,-grau,-sexo) %>%
+  na.omit() %>%
+  ggcorr(palette = "RdBu",
+         color = "grey50",
+         label = TRUE, hjust = 1,
+         label_size = 3, size = 4,
+         nbreaks = 5, layout.exp = 7) +
+  ggtitle("Gráfico de correlação eleições 2010")
 ```
+
+De adocordo com a correlação com a variavel votos, observamos que as variaveis **sequencial_candidato**,**recursos_proprios** e **media_despesa** é redudante para o modelo de 2010 devido ao baixo valor.
+Observamos também que em 2006 a correlação recursos_proprios foi um pouco mais alta e assim considerada, já em 2010 está variavel foi um pouco menor sua correlação e assim não considerada para o modelo.
+
+## Novos modelos sem essas variáveis pouco explicativas e/ou redudantes.
+
 
