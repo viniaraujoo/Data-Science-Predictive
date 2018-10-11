@@ -11,6 +11,7 @@ library(tidyverse)
 library(caret)
 library(lattice)
 library(gridExtra)
+library(broom)
 options(scipen = 999)
 ```
 
@@ -39,6 +40,20 @@ eleicoes_data <- readr::read_csv(
     media_despesa = col_double(),
     votos = col_integer(),
     .default = col_character()))
+
+
+eleicoes_data %>% 
+  mutate(uf = as.factor(uf),
+         nome = as.factor(nome),
+         sexo = as.factor(sexo),
+         grau = as.factor(grau),
+         nome = as.factor(nome),
+         cargo = as.factor(cargo),
+         partido = as.factor(partido),
+         ocupacao = as.factor(ocupacao),
+         estado_civil = as.factor(estado_civil),
+         sequencial_candidato = as.numeric(sequencial_candidato)) -> eleicoes_data
+
 ```
 
 ```{r}
@@ -56,14 +71,14 @@ r1 <- eleicoes_data %>%
   theme(axis.text.x = element_text(angle = 90,
                                    hjust = 1)) 
 
-r2 <- eleicoes_data  %>%
+r2 <- eleicoes_data %>%
+  filter(ano == 2010) %>%
   group_by(partido,ano) %>%
   summarise(n = n()) %>%
   ggplot(aes(reorder(partido,n), n)) +
   geom_bar(stat = "identity") + 
   theme(axis.text.x = element_text(angle = 90,
-                                   hjust = 1)) +
-  facet_grid(. ~ ano)
+                                   hjust = 1)) 
 
 
 grid.arrange(r1,r2)
@@ -124,5 +139,190 @@ eleicoes_data %>%
 ```
 
 
+```{r}
+eleicoes_data %>%
+  mutate(ano = as.factor(ano)) %>%
+  group_by(grau,ano) %>%
+  summarise(n = n()) %>%
+  ggplot(aes(reorder(grau,n),n, fill = ano)) +
+  geom_bar(stat = "identity" , 
+            position = position_dodge(width = 0.5)) +
+  labs(x = "Grau de Instrução do Candidato", y = "Quantidade de candidatos com determinado grau") +
+  coord_flip()
+```
 
+```{r}
+eleicoes_data %>%
+  mutate(ano = as.factor(ano)) %>%
+  group_by(estado_civil,ano) %>%
+  summarise(n = n()) %>%
+  ggplot(aes(reorder(estado_civil,n),n, fill = ano)) +
+  geom_bar(stat = "identity" , 
+            position = position_dodge(width = 0.5)) +
+  labs(x = "Estado Civil do Candidato", y = "Quantidade de candidatos com determinado Estado Civil") +
+  coord_flip()
+```
+
+
+```{r}
+require(GGally)
+
+eleicoes_data %>% 
+  filter(ano == 2006) %>%
+  select(-partido,
+         -uf,-nome,
+         -estado_civil,
+         -ocupacao,-ano,
+         -cargo,-grau,-sexo) %>%
+  na.omit() %>%
+  ggcorr(palette = "RdBu",
+         color = "grey50",
+         label = TRUE, hjust = 1,
+         label_size = 3, size = 4,
+         nbreaks = 5, layout.exp = 7) +
+  ggtitle("Gráfico de correlação eleições 2006")
+
+```
+
+
+
+
+```{r}
+eleicoes_data %>% 
+  filter(ano == 2010) %>%
+  select(-partido,
+         -uf,-nome,
+         -estado_civil,
+         -ocupacao,-ano,
+         -cargo,-grau,-sexo) %>%
+  na.omit() %>%
+  ggcorr(palette = "RdBu",
+         color = "grey50",
+         label = TRUE, hjust = 1,
+         label_size = 3, size = 4,
+         nbreaks = 5, layout.exp = 7) +
+  ggtitle("Gráfico de correlação eleições 2010")
+
+```
+
+
+## Um modelo de regressão múltipla com todas as variáveis é plausível para explicar a variação em y (número de votos) em 2006? 
+
+Para á criação destá regressão, observamos que ás variaveis categoricas nome, ano e cargo produzia um erro na regressão mesmo após a transformação, desse modeo decidir retira-las da regressão.
+
+```{r}
+dados_filtrado_2006 <- eleicoes_data %>% 
+                  filter(ano == 2006) %>%
+                  select(-nome,
+                         -ano,
+                         -cargo) %>%
+                  na.omit() 
+mod_2006 <- lm(votos ~ .,
+          data = dados_filtrado_2006)
+
+glance(mod_2006)
+```
+
+Podemos verificar que a medida de qualidade de ajuste do modelo (Multiple R-Squared) possui um valor baixo, e também observamos que o Adj R-Squared possui um valor baixo, assim vemos que o modelo com todas as variaveis não sendo como muito plausível para a explicar a variação.
+
+
+### Um modelo de regressão múltipla com todas as variáveis é plausível para explicar a variação em y (número de votos) em 2010? 
+Para á criação destá regressão, observamos que ás variaveis categoricas nome, ano e cargo produzia um erro na regressão mesmo após a transformação, desse modeo decidir retira-las da regressão.
+
+```{r}
+dados_filtrado_2010 <- eleicoes_data %>% 
+                  filter(ano == 2010) %>%
+                  select(-nome,
+                         -ano,
+                         -cargo) %>%
+                  na.omit() 
+
+mod_2010 <- lm(votos ~ .,
+          data = dados_filtrado_2010)
+
+glance(mod_2010)
+
+```
+
+Observamos que os valores de  medida de qualidade de ajuste do modelo (Multiple R-Squared) possui um valor baixo, assim como o Adj R-Squared, portanto um modelo considerando todas as variaveis não é muito plausivel.
+
+## Quais variáveis conseguem explicar melhor o número de votos?
+
+Para responder essa pergunta, iremos nós basear em:
+
++ Criação do gráfico de resíduos dos modelos.
++ Comparação dos valores de R2 e RSE referente-se a cada ano.
++ Correlação entre as variaveis e a variavel voto.
+
+### Gráfico de resíduos dos modelos.
+
+```{r}
+require(ggplot2)
+p1 = ggplot(mod_2006, aes(.fitted, .resid)) +
+    geom_point()
+p1 = p1 + geom_hline(yintercept=0, col="red", linetype="dashed")
+p1 = p1 + xlab("Valores ajustados") + ylab("Resíduos")
+p1 = p1 + ggtitle("Gráfico de Resíduos vs Ajustamento - 2006") + 
+    theme_bw()
+p1
+```
+
+Com o gráfico acima, fica claro perceber que os erros não estão distribuidos uniformemente, tendo regiões que aglomeram uma quantidade muito alta de pontos. Além disso, a olho nú é possível notar um pequeno padrão na área inferior ao 0 que respeita a forma de uma reta. Isso pode ter acontecido pois os parâmetros passados tenham ligação entre si.
+
+```{r}
+require(ggplot2)
+p1 = ggplot(mod_2010, aes(.fitted, .resid)) +
+    geom_point()
+p1 = p1 + geom_hline(yintercept=0, col="red", linetype="dashed")
+p1 = p1 + xlab("Valores ajustados") + ylab("Resíduos")
+p1 = p1 + ggtitle("Gráfico de Resíduos vs Ajustamento - 2010") + 
+    theme_bw()
+p1
+```
+
+Observamos no gráfico acima, que no modelo refrente a 2010 temos uma concetração ainda maior de pontos e a distribuição dos erros não estão uniformente.
+
+### Comparação dos valores de R2 e RSE
+
+
+```{r}
+data <- eleicoes_data %>% 
+        filter(ano == 2006) %>%
+        mutate_at(.vars = vars(quantidade_doacoes,
+                          quantidade_doadores,
+                          total_receita,
+                          media_receita,
+                          sequencial_candidato,
+                          recursos_de_outros_candidatos.comites,
+                          recursos_de_pessoas_fisicas,
+                          recursos_de_pessoas_juridicas,
+                          recursos_proprios,
+                          recursos_de_partido_politico,
+                          quantidade_despesas,
+                          quantidade_fornecedores,
+                          total_despesa,
+                          media_despesa),
+             .funs = funs(as.numeric(scale(.))))
+```
+
+
+
+
+```{r}
+tidy(mod,conf.int = TRUE,conf.level = 0.95)
+```
+
+
+```{r}
+tidy(mod_2006, 
+     conf.int = TRUE, 
+     conf.level = 0.95,
+     sep=":") %>%
+  arrange(desc(p.value)) %>%
+  slice(1:3) %>%
+  ggplot(aes(reorder(term,p.value), p.value)) +
+  geom_point(size = 2) +
+  labs(x = "Predictor variable",
+       y = "Estimated value (95% of confidence)")
+```
 
