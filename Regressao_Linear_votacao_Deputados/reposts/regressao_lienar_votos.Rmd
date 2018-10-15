@@ -1,16 +1,24 @@
 ---
 title: "Regressão_Linear_Votos_2006_2010"
 author: "Vinicius Brandão Araujo"
-date: "26 de setembro de 2018"
-output: html_document
+date: 10/10/2018
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: yes
+  html_notebook:
+    toc: yes
+    toc_float: yes
 ---
 
-```{r setup, include=FALSE}
+```{r setup,echo=FALSE, warning=FALSE, message=FALSE}
 library(reshape2)
 library(tidyverse)
 library(caret)
 library(lattice)
 library(gridExtra)
+library(GGally)
 library(broom)
 options(scipen = 999)
 ```
@@ -18,7 +26,7 @@ options(scipen = 999)
 
 
 
-```{r setup}
+```{r}
 eleicoes_data <- readr::read_csv(
   here::here('data/eleicoes_2006_e_2010.csv'), 
   local=readr::locale("br"),
@@ -41,7 +49,7 @@ eleicoes_data <- readr::read_csv(
     votos = col_integer(),
     .default = col_character()))
 
-
+eleicoes_data$id <- 1:nrow(eleicoes_data)
 eleicoes_data %>% 
   mutate(uf = as.factor(uf),
          nome = as.factor(nome),
@@ -56,12 +64,54 @@ eleicoes_data %>%
 
 ```
 
-```{r}
-eleicoes_data %>% glimpse()
-```
-
 
 ## Descrição dos dados
+
+"sequencial_candidato" :(character) id do candidato
+
+"nome": (character)
+
+"uf": (character)
+
+"partido": (character)
+
+"quantidade_doacoes": (integer)
+
+"quantidade_doadores": (integer) número de doadores diferentes
+
+"total_receita": (double) soma em R$ das doações
+
+"media_receita": (double) média das doações
+
+"recursos_de_outros_candidatos/comites": (double) quantia em R$ das doações provenientes de outros candidatos ou comite partidário
+
+"recursos_de_pessoas_fisicas": (double) quantia em R$ das doações provenientes de outros CPFs
+
+"recursos_de_pessoas_juridicas": (double) quantia em R$ das doações provenientes de outros CNPJ
+
+"recursos_proprios": (double) quantia em R$ das doações provenientes do próprio candidato
+
+"recursos_de_partido_politico": (double) quantia em R$ das doações provenientes do partido político do candidato
+
+"votos": (integer) variável alvo. Se refere ao número de votos na campanha de 2006 e 2010
+
+"quantidade_despesas": (integer)
+
+"quantidade_fornecedores": (integer) número de fornecedores/despesas diferentes
+
+"total_despesa": (double) soma em R$ das despesas de campanha
+
+"media_despesa": (double) média das despesas de campanha
+
+"cargo": (character)
+
+"Sexo": (character)
+
+"grau": (character) grau de instrução do candidato
+
+"estado_civil": (character)
+
+"ocupacao": (character) ocupação do candidato
 
 ```{r}
 r1 <- eleicoes_data %>%
@@ -166,8 +216,8 @@ eleicoes_data %>%
 ```
 
 
-
-## Um modelo de regressão múltipla com todas as variáveis é plausível para explicar a variação em y (número de votos) em 2006? 
+## Um modelo de regressão múltipla com todas as variáveis é plausível para explicar a variação em y (número de votos) para 2006 e 2010?
+### Um modelo de regressão múltipla com todas as variáveis é plausível para explicar a variação em y (número de votos) em 2006? 
 
 Para á criação destá regressão, observamos que ás variaveis categoricas nome, ano e cargo produzia um erro na regressão mesmo após a transformação, desse modeo decidir retira-las da regressão.
 
@@ -214,7 +264,7 @@ Para responder essa pergunta, iremos nós basear em:
 + Criação do gráfico de resíduos dos modelos.
 + Quais variáveis conseguem explicar melhor o número de votos?
 + Comparação dos valores de R2 e RSE referente-se a cada ano.
-+ Correlação entre as variaveis e a variavel voto.
++ Analise do gráfico Normal Q-Q.
 
 ### Gráfico de resíduos dos modelos.
 
@@ -243,6 +293,7 @@ p1
 ```
 
 Observamos no gráfico acima, que no modelo refrente a 2010 temos uma concetração ainda maior de pontos e a distribuição dos erros não estão uniformente.
+Desse modo, observamos que ambos os gráficos de residuos se mantem parecidos. Uma diferença é que no gráfico de residuos de 2006 observamos um pouco mais de erros.
 
 ### Comparação dos valores de R2 e RSE
 
@@ -255,21 +306,48 @@ Observamos no gráfico acima, que no modelo refrente a 2010 temos uma concetraç
 
 Como podemos vê o valor de R2 é maior no modelo de 2006 e o valor do RSE é menor do modelo de 2006, então sabendo que quanto maior o R2 e menor o RSE melhor o modelo implica que o modelo de 2006 é melhor em comparativo com o de 2010.
 
-## Todas as variáveis são úteis para os modelos de regressão? Há variáveis redudantes?
+### Q-Q
 
-Para responder está pergunta iremos utilizar correlação entre as variaveis e a variavel votos. 
+> O gráfico QQ, ou quantile-quantile plot, é uma ferramenta gráfica para nos ajudar a avaliar se um conjunto de dados plausivelmente veio de alguma distribuição teórica, como Normal ou exponencial.
 
-```
-  Correlação entre duas variaveis:  + Quando uma delas está, de alguma forma,
-                                    relacionada com a outra.
-                                    + Quando a alteração no valor de uma
-                                    varíavel (dita independente) provoca
-                                    alterações no valor da outra variável
-                                    (dita dependente)
-```
 
 ```{r}
-require(GGally)
+mod_2006 %>%
+  ggplot(aes(sample=rstandard(.))) +
+  stat_qq(na.rm = TRUE,
+          shape=1,size=3) +      
+  labs(title="Normal Q-Q (2006 eleições)",        # plot title
+  x="Theoretical Quantiles",      # x-axis label
+  y="Standardized Residuals") +   # y-axis label +
+  geom_abline(color = "red",
+              size = 0.8,
+              linetype="dashed")  # dashed reference line
+```
+
+Nossos resíduos se desviam um pouco (normalmente não distribuídos). Como temos um desvio relativamente leve, temos um sinal negativo, porém moderado, para o nosso modelo.
+
+
+```{r}
+mod_2010 %>%
+  ggplot(aes(sample=rstandard(.))) +
+  stat_qq(na.rm = TRUE,
+          shape=1,size=3) +      # open circles
+  labs(title="Normal Q-Q (2010 eleições)",        # plot title
+  x="Theoretical Quantiles",      # x-axis label
+  y="Standardized Residuals") +   # y-axis label +
+  geom_abline(color = "red",
+              size = 0.8,
+              linetype="dashed")  # dashed reference line
+```
+
+Embora não seja perfeito, podemos ver que os resíduos desse modelo estão mais próximos de normalmente distribuídos.
+
+
+## Todas as variáveis são úteis para os modelos de regressão? Há variáveis redudantes?
+
+Para esta pergunta, foram utilizada apenas as variáveis numéricas, já que existem muitas categorias nas variáveis catégoricas.
+
+```{r}
 
 eleicoes_data %>% 
   filter(ano == 2006) %>%
@@ -287,11 +365,8 @@ eleicoes_data %>%
   ggtitle("Gráfico de correlação eleições 2006")
 ```
 
-De adocordo com a correlação com a variavel votos, observamos que á variavel **sequencial_candidato** é redudante para o modelo de 2006 devido ao baixo valor.
 
 ```{r}
-require(GGally)
-
 eleicoes_data %>% 
   filter(ano == 2010) %>%
   select(-partido,
@@ -308,9 +383,85 @@ eleicoes_data %>%
   ggtitle("Gráfico de correlação eleições 2010")
 ```
 
-De adocordo com a correlação com a variavel votos, observamos que as variaveis **sequencial_candidato**,**recursos_proprios** e **media_despesa** é redudante para o modelo de 2010 devido ao baixo valor.
-Observamos também que em 2006 a correlação recursos_proprios foi um pouco mais alta e assim considerada, já em 2010 está variavel foi um pouco menor sua correlação e assim não considerada para o modelo.
+Observando o gráfico de correlações acima de 2006 e 2010 podemos obsevar que as variáveis total_despesa e total_receita são as que mais estão correlacionada com a variável votos em ambos os anos, e que a correlação entre elas mesmas é proximo de 1, o que pode indicar uma redundância ao utiliza-las na regressão, e outras variáveis como recursos_de_pessoas_físicas e recursos_de_pessoas_juridicas possuem uma baixa correlação com votos, o que mostra que elas podem não conseguir explicar os votos e podem ser removidas da regressão, ou seja, nem todas as variáveis são importantes.
 
 ## Novos modelos sem essas variáveis pouco explicativas e/ou redudantes.
 
+Ao remover as variáveis categóricas do modelo, ocorreu uma pequena queda no valor do R², porém ao remover as variáveis redundantes e as váriáveis que não faziam sentido para o modelo, o R² se mantece o mesmo, o que mostra que o novo modelo sem essas variáveis é tão explicativo quanto quando estava com elas. Esta siatuação de se manter o mesmo R² ocorreu tanto em 2006 quanto em 2010, mostrando que mesmo com dados bem diferentes, a relação tende a se manter a mesma.
 
+
+```{r}
+model2006 <- dados_filtrado_2006 %>% 
+  lm(formula = votos ~ . 
+     -recursos_de_pessoas_fisicas 
+     -recursos_de_pessoas_juridicas 
+     -quantidade_fornecedores 
+     -quantidade_doacoes 
+     -total_receita)
+glance(model2006)
+```
+
+```{r}
+model2010 <- dados_filtrado_2010 %>% 
+  lm(formula = votos ~ . 
+     -recursos_de_pessoas_fisicas 
+     -recursos_de_pessoas_juridicas 
+     -quantidade_fornecedores 
+     -quantidade_doacoes 
+     -total_receita)
+
+glance(model2010)
+```
+
+## Construção do modelo de 2006 e 2010 juntos.
+
+```{r}
+dados_filtrado_2006_2010 <- eleicoes_data %>% 
+  select(-partido,
+         -uf,-nome,
+         -estado_civil,
+         -ocupacao,-ano,
+         -cargo,-grau,-sexo)
+
+
+mod_2006_2010 <- dados_filtrado_2006_2010 %>% 
+  lm(formula = votos ~ . 
+     -recursos_de_pessoas_fisicas 
+     -recursos_de_pessoas_juridicas 
+     -quantidade_fornecedores 
+     -quantidade_doacoes 
+     -total_receita)
+
+summary(mod_2006_2010)
+glance(mod_2006_2010)
+```
+
+
+```{r}
+p1 = ggplot(mod_2006_2010, aes(.fitted, .resid)) +
+    geom_point()
+p1 = p1 + geom_hline(yintercept=0, col="red", linetype="dashed")
+p1 = p1 + xlab("Valores ajustados") + ylab("Resíduos")
+p1 = p1 + ggtitle("Gráfico de Resíduos vs Ajustamento - 2006 e 2010") + 
+    theme_bw()
+p1
+```
+
+Observamos no gráfico de residuos que se mantem o mesmo comportamento do modelos individuais.
+
+```{r}
+mod_2006_2010 %>% 
+  ggplot(aes(sample=rstandard(.))) +
+  stat_qq(na.rm = TRUE,
+          shape=1,size=3) +      # open circles
+  labs(title="Normal Q-Q (2006 e 2010 eleições)",        # plot title
+  x="Theoretical Quantiles",      # x-axis label
+  y="Standardized Residuals") +   # y-axis label +
+  geom_abline(color = "red",
+              size = 0.8,
+              linetype="dashed")  # dashed reference line
+```
+
+Observamos um comportamento parecido com os modelos individuais.
+
+**Conclusão:** Observamos que nos gráficos de resíduos e Q-Q que se assemelham aos modelos individuais, já para os valores de R2 e RSE observamos que tem uma diferença em relação aos modelos individuais, sendo assim podemos observar que o modelo considerando às duas eleições não gera bons resultados. 
