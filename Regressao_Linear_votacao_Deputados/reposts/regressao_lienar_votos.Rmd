@@ -19,12 +19,20 @@ library(caret)
 library(lattice)
 library(gridExtra)
 library(GGally)
+library(scales)
 library(broom)
 options(scipen = 999)
 ```
 
+## Descrição da atividade.
+Atividade desenvolvida para á disciplina de Ciência de Dados Preditiva (Período: 2018.2) ministrada pelo professor Leandro Balby.
+Está analise tem como objetivo fazer uma regressão Linear para Explicar a votação de Deputados e baseado nisso responder essas perguntas:
 
-
++ Um modelo de regressão múltipla com todas as variáveis é plausível para explicar a variação em y (número de votos) em 2006? Mesma pergunta para   2010. 
++ Compare as regressões construídas para 2006 e 2010. Quais as diferenças/semelhanças percebidas?
++ Todas as variáveis são úteis para os modelos de regressão? Há variáveis redudantes? Faça análises para 2006 e 2010 separadamente.
++ No caso de haver variáveis pouco explicativas e/ou redudantes, construa um novo modelo sem essas variáveis e o compare ao modelo com todas as variáveis (e.g. em termos de R2 e RSE). Faça isso para 2006 e 2010 separadamente. 
++ Construa agora uma regressão considerando os anos 2006 e 2010 em conjunto. Que diferenças/semelhanças você percebe em relação aos modelos individuais por ano? Veja a questão 2 para sugestões que você usar para comparação.
 
 ```{r}
 eleicoes_data <- readr::read_csv(
@@ -48,24 +56,11 @@ eleicoes_data <- readr::read_csv(
     media_despesa = col_double(),
     votos = col_integer(),
     .default = col_character()))
-
-eleicoes_data$id <- 1:nrow(eleicoes_data)
-eleicoes_data %>% 
-  mutate(uf = as.factor(uf),
-         nome = as.factor(nome),
-         sexo = as.factor(sexo),
-         grau = as.factor(grau),
-         nome = as.factor(nome),
-         cargo = as.factor(cargo),
-         partido = as.factor(partido),
-         ocupacao = as.factor(ocupacao),
-         estado_civil = as.factor(estado_civil),
-         sequencial_candidato = as.numeric(sequencial_candidato)) -> eleicoes_data
-
 ```
 
-
 ## Descrição dos dados
+
+Existem 26 variáveis no nosso data frame e o seus significados são:
 
 "sequencial_candidato" :(character) id do candidato
 
@@ -113,106 +108,43 @@ eleicoes_data %>%
 
 "ocupacao": (character) ocupação do candidato
 
-```{r}
-r1 <- eleicoes_data %>%
-  filter(ano == 2006) %>%
-  group_by(partido,ano) %>%
-  summarise(n = n()) %>%
-  ggplot(aes(reorder(partido,n), n)) +
-  geom_bar(stat = "identity") + 
-  theme(axis.text.x = element_text(angle = 90,
-                                   hjust = 1)) 
 
-r2 <- eleicoes_data %>%
-  filter(ano == 2010) %>%
-  group_by(partido,ano) %>%
-  summarise(n = n()) %>%
-  ggplot(aes(reorder(partido,n), n)) +
-  geom_bar(stat = "identity") + 
-  theme(axis.text.x = element_text(angle = 90,
-                                   hjust = 1)) 
+```{r message=FALSE}
+remove_categorical_vars_converted = function(data) {
+  return(
+    data %>%
+      select(-c(nome, uf, partido, cargo, sexo, grau, estado_civil, ocupacao))
+  )
+}
 
+reshaped_data = 
+  reshape2::melt(
+    eleicoes_data %>%
+      remove_categorical_vars_converted)
 
-grid.arrange(r1,r2)
+ggplot2::ggplot(reshaped_data, aes(x = value)) + 
+  facet_wrap(~variable) + 
+  geom_histogram() +
+  scale_y_continuous(label = scales::unit_format(unit = "k", scale = 1e-3))  +
+  scale_x_continuous(label = scales::unit_format(unit = "k", scale = 1e-3), limits = c(-1000, 10000))  +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
+### Pré-processando
+Convertendo vars categóricas em numéricas
 
 ```{r}
 eleicoes_data %>% 
-        ggplot(aes(quantidade_doadores)) +
-        geom_histogram(bins = 30) +
-        facet_grid(. ~ ano)
-        
-```
-
-
-```{r}
-eleicoes_data %>% 
-        ggplot(aes(total_receita)) +
-        geom_histogram(bins = 30) +
-        facet_grid(. ~ ano)
-```
-
-
-
-```{r}
-eleicoes_data %>% 
-        ggplot(aes(recursos_de_outros_candidatos.comites)) +
-        geom_histogram(bins = 30) +
-        facet_grid(. ~ ano)
-```
-
-```{r}
-eleicoes_data %>% 
-        ggplot(aes(recursos_proprios)) +
-        geom_histogram(bins = 30) +
-        facet_grid(. ~ ano)
-```
-
-
-
-
-```{r}
-eleicoes_data %>% 
-        ggplot(aes(total_despesa)) +
-        geom_histogram(bins = 30) +
-        facet_grid(. ~ ano)
-```
-
-
-```{r}
-eleicoes_data %>%
-  group_by(sexo,ano) %>%
-  summarise(n = n()) %>%
-  ggplot(aes(reorder(sexo,n), n)) +
-  geom_bar(stat = "identity") +
-  labs(x = "Sexo", y = "Quantidade de candidatos desse sexo") +
-  facet_grid(.~ ano)
-```
-
-
-```{r}
-eleicoes_data %>%
-  mutate(ano = as.factor(ano)) %>%
-  group_by(grau,ano) %>%
-  summarise(n = n()) %>%
-  ggplot(aes(reorder(grau,n),n, fill = ano)) +
-  geom_bar(stat = "identity" , 
-            position = position_dodge(width = 0.5)) +
-  labs(x = "Grau de Instrução do Candidato", y = "Quantidade de candidatos com determinado grau") +
-  coord_flip()
-```
-
-```{r}
-eleicoes_data %>%
-  mutate(ano = as.factor(ano)) %>%
-  group_by(estado_civil,ano) %>%
-  summarise(n = n()) %>%
-  ggplot(aes(reorder(estado_civil,n),n, fill = ano)) +
-  geom_bar(stat = "identity" , 
-            position = position_dodge(width = 0.5)) +
-  labs(x = "Estado Civil do Candidato", y = "Quantidade de candidatos com determinado Estado Civil") +
-  coord_flip()
+  mutate(uf = as.factor(uf),
+         nome = as.factor(nome),
+         sexo = as.factor(sexo),
+         grau = as.factor(grau),
+         nome = as.factor(nome),
+         cargo = as.factor(cargo),
+         partido = as.factor(partido),
+         ocupacao = as.factor(ocupacao),
+         estado_civil = as.factor(estado_civil),
+         sequencial_candidato = as.numeric(sequencial_candidato)) -> eleicoes_data
 ```
 
 
@@ -297,14 +229,15 @@ Desse modo, observamos que ambos os gráficos de residuos se mantem parecidos. U
 
 ### Comparação dos valores de R2 e RSE
 
+Summarizando o modelo obtivemos os seguintes resultados:
+
 |        | Model_2006           | Model_2010  |
 | ------------- |:-------------:| -----:|
 | R2     | 0.5779| 0.5405 |
 | RSE     | 3213      |   3810 |
 | Adjusted R-squared  | 0.5487 |  0.5129|
 
-
-Como podemos vê o valor de R2 é maior no modelo de 2006 e o valor do RSE é menor do modelo de 2006, então sabendo que quanto maior o R2 e menor o RSE melhor o modelo implica que o modelo de 2006 é melhor em comparativo com o de 2010.
+O RSE (residual standard error) e o R² (R-squared). O primeiro fornece uma medida absoluta de falta de ajuste do modelo aos dados. Já o R² indica a proporção da variabilidade da variável alvo explicada pelo modelo. Neste caso para omodelo de 2006, por exemplo ele explica 58% dos dados, assim podemos afirmar que este modelo é razoável para explicar a quantidade de votos de um candidato. Da mesma forma o valor para o modelo de 2010 referente a 54%.
 
 ### Q-Q
 
@@ -324,7 +257,6 @@ mod_2006 %>%
               linetype="dashed")  # dashed reference line
 ```
 
-Nossos resíduos se desviam um pouco (normalmente não distribuídos). Como temos um desvio relativamente leve, temos um sinal negativo, porém moderado, para o nosso modelo.
 
 
 ```{r}
@@ -340,12 +272,12 @@ mod_2010 %>%
               linetype="dashed")  # dashed reference line
 ```
 
-Embora não seja perfeito, podemos ver que os resíduos desse modelo estão mais próximos de normalmente distribuídos.
+Observamos em ambos os modelos que os pontos estão muito desajustados à linha reta, o que não é a situação ideal. Perceba que os pontos se curvam nas extremidades. Isso pode significar que nossos dados possuem mais valores extremos do que esperado caso tivessem uma distribuição normal.
 
 
 ## Todas as variáveis são úteis para os modelos de regressão? Há variáveis redudantes?
 
-Para esta pergunta, foram utilizada apenas as variáveis numéricas, já que existem muitas categorias nas variáveis catégoricas.
+Para esta pergunta, foram utilizadas apenas as variáveis numéricas, já que existem muitas categorias nas variáveis categóricas, e depôs verificar a correlação. Se duas variáveis forem fortemente correlacionadas, então uma delas é redundante.
 
 ```{r}
 
@@ -383,11 +315,11 @@ eleicoes_data %>%
   ggtitle("Gráfico de correlação eleições 2010")
 ```
 
-Observando o gráfico de correlações acima de 2006 e 2010 podemos obsevar que as variáveis total_despesa e total_receita são as que mais estão correlacionada com a variável votos em ambos os anos, e que a correlação entre elas mesmas é proximo de 1, o que pode indicar uma redundância ao utiliza-las na regressão, e outras variáveis como recursos_de_pessoas_físicas e recursos_de_pessoas_juridicas possuem uma baixa correlação com votos, o que mostra que elas podem não conseguir explicar os votos e podem ser removidas da regressão, ou seja, nem todas as variáveis são importantes.
+Observando o gráfico de correlações acima de 2006 e 2010 podemos obsevar que as variáveis total_despesa e total_receita são as que mais estão correlacionada em ambos os anos, e que a correlação entre elas mesmas é 1, o que pode indicar uma redundância ao utiliza-las as duas na regressão, e outras variáveis como recursos_de_pessoas_físicas e recursos_de_pessoas_juridicas possuem uma baixa correlação com votos, o que mostra que elas podem não conseguir explicar os votos e podem ser removidas da regressão, ou seja, nem todas as variáveis são importantes.
 
 ## Novos modelos sem essas variáveis pouco explicativas e/ou redudantes.
 
-Ao remover as variáveis categóricas do modelo, ocorreu uma pequena queda no valor do R², porém ao remover as variáveis redundantes e as váriáveis que não faziam sentido para o modelo, o R² se mantece o mesmo, o que mostra que o novo modelo sem essas variáveis é tão explicativo quanto quando estava com elas. Esta siatuação de se manter o mesmo R² ocorreu tanto em 2006 quanto em 2010, mostrando que mesmo com dados bem diferentes, a relação tende a se manter a mesma.
+Ao remover as variáveis categóricas do modelo, ocorreu uma pequena queda no valor do R², porém ao remover as variáveis redundantes e as váriáveis que não faziam sentido para o modelo, o R² se mantece o mesmo, o que mostra que o novo modelo sem essas variáveis é tão explicativo quanto quando estava com elas. Esta siatuação de se manter o mesmo R² ocorreu tanto em 2006 quanto em 2010, mostrando que mesmo com dados diferentes, a relação tende a se manter a mesma.
 
 
 ```{r}
@@ -398,6 +330,7 @@ model2006 <- dados_filtrado_2006 %>%
      -quantidade_fornecedores 
      -quantidade_doacoes 
      -total_receita)
+
 glance(model2006)
 ```
 
@@ -464,4 +397,4 @@ mod_2006_2010 %>%
 
 Observamos um comportamento parecido com os modelos individuais.
 
-**Conclusão:** Observamos que nos gráficos de resíduos e Q-Q que se assemelham aos modelos individuais, já para os valores de R2 e RSE observamos que tem uma diferença em relação aos modelos individuais, sendo assim podemos observar que o modelo considerando às duas eleições não gera bons resultados. 
+**Conclusão:** Observamos que nos gráficos de resíduos e Q-Q que se assemelham aos modelos individuais, já para os valores de R2 e RSE observamos que tem uma diferença em relação aos modelos individuais, sendo assim podemos observar que o modelo considerando às duas eleições não gera uma melhoria significativa. 
