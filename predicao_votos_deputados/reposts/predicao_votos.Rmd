@@ -1,0 +1,74 @@
+---
+title: "Predição votos deputados"
+author: "Vinicius Brandão Araujo"
+date: 03/11/2018
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: yes
+  html_notebook:
+    toc: yes
+    toc_float: yes
+---
+
+```{r setup, include=FALSE}
+library(caret)
+library(tidyverse)
+library(gridExtra)
+```
+
+```{r}
+train <- read.csv('../data/train.csv')
+test <- read.csv('../data/test.csv')
+```
+
+### Pre-processamento dos dados
+```{r}
+train <- train %>%   
+          select(-partido,
+                 -uf,-nome,
+                 -estado_civil,
+                 -ocupacao,-ano,
+                 -cargo,-grau,-sexo,
+                 -sequencial_candidato)
+
+```
+
+
+# Modelos de Regressão
+
+## Ridge
+
+```{r}
+lambda <- expand.grid(lambda = seq(10^-2, 10^-9, length=20))
+
+cross_validation <- trainControl(method = "cv", number = 10)
+
+model_ridge <- train(votos ~ .,
+                     data = train,
+                     method = "ridge",
+                     tunergrid = "lambda",
+                     preProc = c("center", "scale"),
+                     trControl = cross_validation)
+
+plot(model_ridge)
+model_ridge
+```
+
+## Lasso
+
+```{r}
+lambda <- expand.grid(fraction = seq(0.01, 10^-8, length=20))
+
+model_lasso <- train(votos ~ .,
+                     data = train,
+                     method = "lasso",
+                     tunergrid = "lambda",
+                     preProc = c("center", "scale"),
+                     trControl = cross_validation)
+
+plot(model_lasso)
+model_lasso
+```
+
