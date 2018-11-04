@@ -48,7 +48,7 @@ cross_validation <- trainControl(method = "cv", number = 10)
 model_ridge <- train(votos ~ .,
                      data = train,
                      method = "ridge",
-                     tunergrid = "lambda",
+                     tunerGrid = "lambda",
                      preProc = c("center", "scale"),
                      trControl = cross_validation)
 
@@ -60,15 +60,71 @@ model_ridge
 
 ```{r}
 lambda <- expand.grid(fraction = seq(0.01, 10^-8, length=20))
+model_lasso <- train(votos ~ ., 
+                     data = train, 
+                     method = "lasso", 
+                     tuneGrid = lambda,
+                     preProc = c("center", "scale"),
+                     trControl = cross_validation)
+plot(model_lasso)
+model_lasso
+```
 
-model_lasso <- train(votos ~ .,
-                     data = train,
-                     method = "lasso",
-                     tunergrid = "lambda",
+## KNN
+
+```{r}
+k <- expand.grid(k = seq(20,100, length=81))
+model_knn <- train(votos ~ ., 
+                     data = train, 
+                     method = "knn", 
+                     tuneGrid = k,
+                     preProc = c("center", "scale"),
+                     trControl = cross_validation)
+plot(model_knn)
+model_knn
+```
+
+# Comparação dos três modelos em termos do erro RMSE de validação cruzada.
+
+```{r}
+summary(resamples(list(RIDGE = model_ridge, LASSO = model_lasso, KNN = model_knn )))
+```
+
+Como podemos observar em temos do RMSE o modelo de regressão KNN tem um menor, então nos indica um bom modelo para utilizarmos.
+
+# Quais as variáveis mais importantes segundo o modelo de regressão Ridge e Lasso?  Variáveis foram descartadas pelo Lasso? Quais?
+
+```{r}
+ridgeimp <- ggplot(varImp(model_ridge))
+lassoimp <- ggplot(varImp(model_lasso))
+
+grid.arrange(ridgeimp,lassoimp, nrow = 1)
+```
+
+```{r}
+predictors <- predictors(model_lasso)
+predictors
+```
+
+# Re-treine o melhor modelo (usando os melhores valores de parâmetros encontrados em todos os dados, sem usar validação cruzada)
+
+## Pre-processamento
+```{r}
+train <- train %>% 
+         select(predictors, votos)
+```
+
+## Modelo de Regressão melhorado
+
+```{r}
+model_improved_knn <- train(votos ~ ., 
+                     data = train, 
+                     method = "knn", 
+                     tuneGrid = k,
                      preProc = c("center", "scale"),
                      trControl = cross_validation)
 
-plot(model_lasso)
-model_lasso
+plot(model_improved_knn)
+model_improved_knn
 ```
 
