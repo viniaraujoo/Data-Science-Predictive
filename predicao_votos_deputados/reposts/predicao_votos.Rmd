@@ -117,6 +117,8 @@ train <- train %>%
 ## Modelo de Regressão melhorado
 
 ```{r}
+cross_validation <- trainControl(method = "cv", number = 10)
+k <- expand.grid(k = seq(20,100, length=73))
 model_improved_knn <- train(votos ~ ., 
                      data = train, 
                      method = "knn", 
@@ -126,5 +128,17 @@ model_improved_knn <- train(votos ~ .,
 
 plot(model_improved_knn)
 model_improved_knn
+```
+
+# Teste do modelo 
+
+```{r}
+prediction <- predict(model_improved_knn,test)
+answer <- data.frame(ID = test$sequencial_candidato, votos = prediction)
+answer$ID <- as.character(answer$ID)
+```
+
+```{r}
+answer %>% write_csv(here::here("data/answer.csv"))
 ```
 
