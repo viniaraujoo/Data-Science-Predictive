@@ -18,12 +18,18 @@ library(tidyverse)
 library(gridExtra)
 ```
 
+# Descrição
+Analise desenvolvido para a disciplina de Ciência de Dados Preditiva no período de 2018.2, o principal objetivo desta analise é estudar modelo de regressão Ridge, Lasso e KNN.
+A partir disto decidir qual o melhor modelo e assim submeter na [competição](https://www.kaggle.com/c/ufcg-cdp-20182/leaderboard) da disciplina para a predição dos votos dos deputados em 2014.
+
 ```{r}
 train <- read.csv('../data/train.csv')
 test <- read.csv('../data/test.csv')
 ```
 
-### Pre-processamento dos dados
+## Pre-processamento dos dados
+
+Considerando a analise [anterior](https://rpubs.com/viniciusaraujo/regressao_linear_votos), consideramos tais variaveis categoricas inapropriada para o modelo.
 ```{r}
 train <- train %>%   
           select(-partido,
@@ -114,17 +120,16 @@ train <- train %>%
          select(predictors, votos)
 ```
 
+
 ## Modelo de Regressão melhorado
 
 ```{r}
-cross_validation <- trainControl(method = "cv", number = 10)
-k <- expand.grid(k = seq(20,100, length=73))
 model_improved_knn <- train(votos ~ ., 
                      data = train, 
                      method = "knn", 
                      tuneGrid = k,
                      preProc = c("center", "scale"),
-                     trControl = cross_validation)
+                     trControl = trainControl(method="none"))
 
 plot(model_improved_knn)
 model_improved_knn
@@ -136,9 +141,13 @@ model_improved_knn
 prediction <- predict(model_improved_knn,test)
 answer <- data.frame(ID = test$sequencial_candidato, votos = prediction)
 answer$ID <- as.character(answer$ID)
+answer %>%
+  glimpse()
 ```
 
 ```{r}
 answer %>% write_csv(here::here("data/answer.csv"))
 ```
+
+
 
