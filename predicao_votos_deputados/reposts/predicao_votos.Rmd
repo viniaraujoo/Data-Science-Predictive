@@ -112,6 +112,12 @@ predictors <- predictors(model_lasso)
 predictors
 ```
 
+Observamos que tais variáveis são muito importante para o modelo lasso, observamos também que tais variaveis foram descartadas, são elas:
+
++ media_despesa
++ recursos_proprios
++ recursos_de_outros_candidatos.comite
+
 # Re-treine o melhor modelo (usando os melhores valores de parâmetros encontrados em todos os dados, sem usar validação cruzada)
 
 ## Pre-processamento
@@ -127,11 +133,10 @@ train <- train %>%
 model_improved_knn <- train(votos ~ ., 
                      data = train, 
                      method = "knn", 
-                     tuneGrid = k,
+                     tuneGrid = data.frame(k = 16),
                      preProc = c("center", "scale"),
                      trControl = trainControl(method="none"))
 
-plot(model_improved_knn)
 model_improved_knn
 ```
 
