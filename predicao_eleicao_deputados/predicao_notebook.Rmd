@@ -1,0 +1,56 @@
+---
+title: "Predição eleição deputados"
+author: "Vinicius Brandão Araujo"
+date: 25/11/2018
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: yes
+  html_notebook:
+    toc: yes
+    toc_float: yes
+---
+
+
+```{r setup, include=FALSE}
+library(caret)
+library(tidyverse)
+library(gridExtra)
+```
+
+
+```{r}
+train <- read.csv("data/train.csv")
+```
+
+```{r}
+train <- train %>%   
+          select(-partido,
+                 -uf,-nome,
+                 -estado_civil,
+                 -ocupacao,-ano,
+                 -cargo,-grau,-sexo,
+                 -sequencial_candidato)
+```
+
+
+## Há desbalanceamento das classes (isto é, uma classe tem muito mais instâncias que outra)? Em que proporção? Quais efeitos colaterais o desbalanceamento de classes pode causar no classificador? Como você poderia tratar isso?
+
+Como o principal intuito é a predição se um candidato foi eleito ou não, devemos considerar a classe situação e assim observar como está distribuida no conjunto de treinamento.
+
+```{r}
+train %>% ggplot(aes(situacao)) + geom_bar(aes(y = (..count..)/sum(..count..))) + scale_y_continuous(labels=scales::percent) + ylab("Porcentagem relativa nos dados")
+```
+
+Observamos que a situação não eleito está presente em mais de 75% dos dados de treinamento, nesse caso observamos uma desbalanceamento em uma grande proporção, considerando que eleito equivale a menos de 20 % dos dados.
+Desse modo, iremos aplicar o método de amostragem chamado SMOTE para criar o balanceamento nessa classe.
+
+
+
+```{r}
+balanceado <- SMOTE(situacao ~ ., train)
+```
+
+
+
