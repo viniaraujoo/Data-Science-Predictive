@@ -52,5 +52,8 @@ Desse modo, iremos aplicar o método de amostragem chamado SMOTE para criar o ba
 balanceado <- SMOTE(situacao ~ ., train)
 ```
 
+## XGBoost
 
+
+## Gradiente boosting
 
