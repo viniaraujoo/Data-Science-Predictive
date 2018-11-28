@@ -112,11 +112,7 @@ predictors <- predictors(model_lasso)
 predictors
 ```
 
-Observamos que tais variáveis são muito importante para o modelo lasso, observamos também que tais variaveis foram descartadas, são elas:
-
-+ media_despesa
-+ recursos_proprios
-+ recursos_de_outros_candidatos.comite
+Observamos que o modelo lasso considerou essas variaveis como importante para o modelo.
 
 # Re-treine o melhor modelo (usando os melhores valores de parâmetros encontrados em todos os dados, sem usar validação cruzada)
 

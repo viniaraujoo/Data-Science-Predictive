@@ -1,0 +1,10 @@
+name: Publish Document
+title:
+username:
+account: rpubs
+server: rpubs.com
+hostUrl: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/437222/094f65a60b354bde868a9a9b71c25028
+bundleId: https://api.rpubs.com/api/v1/document/437222/094f65a60b354bde868a9a9b71c25028
+url: http://rpubs.com/viniciusaraujo/437222
+when: 1541556489.18982

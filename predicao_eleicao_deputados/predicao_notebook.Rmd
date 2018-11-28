@@ -17,11 +17,13 @@ output:
 library(caret)
 library(tidyverse)
 library(gridExtra)
+library(xgboost)
 ```
 
 
 ```{r}
 train <- read.csv("data/train.csv")
+test <- read.csv("data/test.csv")
 ```
 
 ```{r}
@@ -47,13 +49,71 @@ Observamos que a situação não eleito está presente em mais de 75% dos dados 
 Desse modo, iremos aplicar o método de amostragem chamado SMOTE para criar o balanceamento nessa classe.
 
 
+## Models
 
+### KNN
 ```{r}
-balanceado <- SMOTE(situacao ~ ., train)
+cross_validation <- trainControl(method = "cv", number = 10)
+k <- expand.grid(k = seq(20,100, length=81))
+model_knn <- train(situacao ~ ., 
+                     data = train, 
+                     method = "knn", 
+                     tuneGrid = k,
+                     preProc = c("center", "scale"),
+                     trControl = cross_validation)
+plot(model_knn)
+model_knn
 ```
 
-## XGBoost
+### Regressão Logística
+```{r}
+cross_validation <- trainControl(method = "cv", number = 3,summaryFunction = twoClassSummary, search = "random", verboseIter = TRUE)
+rlGrid <- expand.grid(cost = c(200,2,0.02),loss = c("L2","L2_dual","L2_primal"), epsilon = c(0.001,0.01))
+model_logistic<- train(situacao ~ ., 
+                     data = train, 
+                     method = "regLogistic",
+                     preProc = c("center", "scale"),
+                     trControl = trainControl(method = "boot", classProbs = TRUE),
+                     tuneGrid = rlGrid)
+plot(model_logistic)
+model_logistic
+```
+
+### Árvore de Decisão
+
+```{r}
+cross_validation <- trainControl(method = "cv", number = 5,summaryFunction = twoClassSummary, search = "random", verboseIter = TRUE)
+
+model_tree<- train(situacao ~ ., 
+                     data = train, 
+                     method = "rf",
+                     preProc = c("center", "scale"),
+                     trControl = trainControl(method = "boot", classProbs = TRUE))
+plot(model_tree)
+model_tree
+```
+
+### 
+
+```{r}
+cross_validation <- trainControl(method = "cv", number = 3,summaryFunction = twoClassSummary, search = "random", verboseIter = TRUE)
+
+model_ada<- train(situacao ~ ., 
+                     data = train, 
+                     method = "ada",
+                     preProc = c("center", "scale"),
+                     trControl = trainControl(method = "boot", classProbs = TRUE))
+plot(model_ada)
+model_ada
+
+```
 
 
-## Gradiente boosting
+
+```{r}
+pred <- predict(model_knn, test)
+data <- data.frame(ID = test$sequencial_candidato, Predicted = pred) 
+data$ID <- as.character(data$ID)
+data %>% write_csv(path = "data/result.csv") 
+```
 
