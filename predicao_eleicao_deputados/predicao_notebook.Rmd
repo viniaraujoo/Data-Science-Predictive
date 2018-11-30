@@ -52,7 +52,7 @@ Desse modo, iremos aplicar o método de amostragem chamado SMOTE para criar o ba
 
 ### KNN
 ```{r}
-cross_validation <- trainControl(method = "cv", number = 10)
+cross_validation <- trainControl(method = "repeatedcv", number = 5,repeats=5)
 k <- expand.grid(k = seq(20,100, length=81))
 model_knn <- train(situacao ~ ., 
                      data = train, 
@@ -66,14 +66,12 @@ model_knn
 
 ### Regressão Logística
 ```{r}
-cross_validation <- trainControl(method = "boot",classProbs = TRUE,sampling = "smote")
 rlGrid <- expand.grid(cost = c(200,2,0.02),loss = c("L2","L2_dual","L2_primal"), epsilon = c(0.001,0.01))
-
 model_logistic<- train(situacao ~ ., 
                      data = train, 
                      method = "regLogistic",
                      preProc = c("center", "scale"),
-                     trControl = cross_validation,
+                     trControl = trainControl(method = "optimism_boot", classProbs = TRUE),
                      tuneGrid = rlGrid)
 plot(model_logistic)
 model_logistic
@@ -82,27 +80,28 @@ model_logistic
 ### Árvore de Decisão
 
 ```{r}
-cross_validation <- trainControl(method = "cv", number = 5,summaryFunction = twoClassSummary, search = "random", verboseIter = TRUE)
+cross_validation <- trainControl(method = "boot", number = 5,classProbs = TRUE)
 
 model_tree<- train(situacao ~ ., 
                      data = train, 
-                     method = "rf",
+                     method = "rpart",
                      preProc = c("center", "scale"),
-                     trControl = trainControl(method = "boot", classProbs = TRUE))
+                     trControl = cross_validation,
+                    tuneLength = 5)
 plot(model_tree)
 model_tree
 ```
 
-### 
+### Adaboost
 
 ```{r}
-cross_validation <- trainControl(method = "cv", number = 3,summaryFunction = twoClassSummary, search = "random", verboseIter = TRUE)
+cross_validation <- trainControl(method = "boot", number = 3,repeats = 5,sampling = "smote", search = "random", verboseIter = FALSE)
 
 model_ada<- train(situacao ~ ., 
                      data = train, 
                      method = "ada",
                      preProc = c("center", "scale"),
-                     trControl = trainControl(method = "boot", classProbs = TRUE))
+                     trControl = cross_validation)
 plot(model_ada)
 model_ada
 
@@ -111,9 +110,11 @@ model_ada
 
 
 ```{r}
-pred <- predict(model_knn, test)
+pred <- predict(model_logistic, test)
 data <- data.frame(ID = test$sequencial_candidato, Predicted = pred) 
 data$ID <- as.character(data$ID)
 data %>% write_csv(path = "data/result.csv") 
 ```
+
+
 
