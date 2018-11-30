@@ -36,7 +36,6 @@ train <- train %>%
                  -sequencial_candidato)
 ```
 
-
 ## Há desbalanceamento das classes (isto é, uma classe tem muito mais instâncias que outra)? Em que proporção? Quais efeitos colaterais o desbalanceamento de classes pode causar no classificador? Como você poderia tratar isso?
 
 Como o principal intuito é a predição se um candidato foi eleito ou não, devemos considerar a classe situação e assim observar como está distribuida no conjunto de treinamento.
@@ -67,13 +66,14 @@ model_knn
 
 ### Regressão Logística
 ```{r}
-cross_validation <- trainControl(method = "cv", number = 3,summaryFunction = twoClassSummary, search = "random", verboseIter = TRUE)
+cross_validation <- trainControl(method = "boot",classProbs = TRUE,sampling = "smote")
 rlGrid <- expand.grid(cost = c(200,2,0.02),loss = c("L2","L2_dual","L2_primal"), epsilon = c(0.001,0.01))
+
 model_logistic<- train(situacao ~ ., 
                      data = train, 
                      method = "regLogistic",
                      preProc = c("center", "scale"),
-                     trControl = trainControl(method = "boot", classProbs = TRUE),
+                     trControl = cross_validation,
                      tuneGrid = rlGrid)
 plot(model_logistic)
 model_logistic
