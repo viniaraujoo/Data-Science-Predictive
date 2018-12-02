@@ -26,15 +26,8 @@ train <- read.csv("data/train.csv")
 test <- read.csv("data/test.csv")
 ```
 
-```{r}
-train <- train %>%   
-          select(-partido,
-                 -uf,-nome,
-                 -estado_civil,
-                 -ocupacao,-ano,
-                 -cargo,-grau,-sexo,
-                 -sequencial_candidato)
-```
+# Descrição
+Analise desenvolvido para a disciplina de Ciência de Dados Preditiva no período de 2018.2, o principal objetivo desta analise é prever quais candidatos à Câmara de Deputados serão eleitos nas eleições de 2014.
 
 ## Há desbalanceamento das classes (isto é, uma classe tem muito mais instâncias que outra)? Em que proporção? Quais efeitos colaterais o desbalanceamento de classes pode causar no classificador? Como você poderia tratar isso?
 
@@ -44,16 +37,50 @@ Como o principal intuito é a predição se um candidato foi eleito ou não, dev
 train %>% ggplot(aes(situacao)) + geom_bar(aes(y = (..count..)/sum(..count..))) + scale_y_continuous(labels=scales::percent) + ylab("Porcentagem relativa nos dados")
 ```
 
-Observamos que a situação não eleito está presente em mais de 75% dos dados de treinamento, nesse caso observamos uma desbalanceamento em uma grande proporção, considerando que eleito equivale a menos de 20 % dos dados.
-Desse modo, iremos aplicar o método de amostragem chamado SMOTE para criar o balanceamento nessa classe.
+Observamos que a situação não eleito está presente em mais de 80% dos dados de treinamento, nesse caso observamos uma desbalanceamento em uma grande proporção, considerando que eleito equivale a menos de 15 % dos dados. 
+Desse modo, pode ser criado um víes na qual o modelo aprenderá a ignorar as classes menos frequentes, levando a um impacto negativo na generalização do modelo e seu desempenho. 
+O tratamento desses desbalanceamento pode ser dado de duas formas, são elas:
++ Undersampling
++ Oversampling
+
+## Pre-processamento dos dados
+
+Iremos "limpar os dados" desconsiderando algumas variaveis na qual não consideramos nescessaria para a geração dos modelos.
+```{r}
+train <- train %>%   
+          select(-ano,
+                 -nome,
+                 -id,-sequencial_candidato)
+test <- test %>%   
+          select(-ano,
+                 -nome,
+                 -id,-sequencial_candidato)
+```
+
+Levando em consideração o desbalacemaneto existente, iremos utilizar a função SMOTE para o balancemaneto. 
+
+> A função SMOTE faz sobreamostragem de seu evento raro usando bootstrapping e k-neighbor mais próximo para criar sinteticamente observações adicionais daquele evento.
+
+```{r}
+train <- train %>% SMOTE(situacao ~ .,
+                          data = ., 
+                          perc.over = 200, 
+                          perc.under=200)
+
+train %>%
+  group_by(situacao) %>%
+  summarise(num = n()) %>%
+  ungroup() %>%
+  mutate(total = sum(num))
+```
 
 
-## Models
+## Treine: um modelo de KNN, regressão logística, uma árvore de decisão e um modelo de adaboost. Tune esses modelos usando validação cruzada e controle overfitting se necessário, considerando as particularidades de cada modelo. 
 
 ### KNN
 ```{r}
-cross_validation <- trainControl(method = "repeatedcv", number = 5,repeats=5)
-k <- expand.grid(k = seq(20,100, length=81))
+cross_validation <- trainControl(method = "boot", classProbs = TRUE,summaryFunction = f1)
+k <- expand.grid(k = seq(from=1, to=50, by=1))
 model_knn <- train(situacao ~ ., 
                      data = train, 
                      method = "knn", 
@@ -67,12 +94,13 @@ model_knn
 ### Regressão Logística
 ```{r}
 rlGrid <- expand.grid(cost = c(200,2,0.02),loss = c("L2","L2_dual","L2_primal"), epsilon = c(0.001,0.01))
+cross_validation <- trainControl(method = "boot",classProbs = TRUE,summaryFunction = f1)
 model_logistic<- train(situacao ~ ., 
                      data = train, 
                      method = "regLogistic",
+                     metric = "F1",
                      preProc = c("center", "scale"),
-                     trControl = trainControl(method = "optimism_boot", classProbs = TRUE),
-                     tuneGrid = rlGrid)
+                     trControl = cross_validation)
 plot(model_logistic)
 model_logistic
 ```
@@ -80,14 +108,14 @@ model_logistic
 ### Árvore de Decisão
 
 ```{r}
-cross_validation <- trainControl(method = "boot", number = 5,classProbs = TRUE)
+cross_validation <- trainControl(method = "boot",classProbs = TRUE,summaryFunction = f1)
 
-model_tree<- train(situacao ~ ., 
+model_tree<- train(situacao ~ .,
+                     metric = "F1",
                      data = train, 
                      method = "rpart",
                      preProc = c("center", "scale"),
-                     trControl = cross_validation,
-                    tuneLength = 5)
+                     trControl = cross_validation)
 plot(model_tree)
 model_tree
 ```
@@ -95,7 +123,7 @@ model_tree
 ### Adaboost
 
 ```{r}
-cross_validation <- trainControl(method = "boot", number = 3,repeats = 5,sampling = "smote", search = "random", verboseIter = FALSE)
+cross_validation <- trainControl(method = "boot",seeds = seeds, search = "random", verboseIter = FALSE)
 
 model_ada<- train(situacao ~ ., 
                      data = train, 
@@ -109,12 +137,35 @@ model_ada
 
 
 
+## Reporte precision, recall e f-measure no treino e validação. Há uma grande diferença de desempenho no treino/validação? Como você avalia os resultados? 
+
+### KNN
+```{r}
+model_knn 
+```
+
+
+### Regressão Logística
+
+
+### Árvore de Decisão
+
+
+### Adaboost
+
+
+## Interprete as saídas dos modelos. Quais atributos parecem ser mais importantes de acordo com cada modelo?
+
+
+
+
+
+
+### Save model results
+
 ```{r}
 pred <- predict(model_logistic, test)
 data <- data.frame(ID = test$sequencial_candidato, Predicted = pred) 
 data$ID <- as.character(data$ID)
 data %>% write_csv(path = "data/result.csv") 
 ```
-
-
-
