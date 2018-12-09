@@ -18,12 +18,14 @@ library(caret)
 library(tidyverse)
 library(gridExtra)
 library(xgboost)
+library(grid)
+library(DMwR)
 ```
 
 
 ```{r}
-train <- read.csv("data/train.csv")
-test <- read.csv("data/test.csv")
+train_data <- read.csv("data/train.csv")
+test_data <- read.csv("data/test.csv")
 ```
 
 # Descrição
@@ -34,27 +36,51 @@ Analise desenvolvido para a disciplina de Ciência de Dados Preditiva no períod
 Como o principal intuito é a predição se um candidato foi eleito ou não, devemos considerar a classe situação e assim observar como está distribuida no conjunto de treinamento.
 
 ```{r}
-train %>% ggplot(aes(situacao)) + geom_bar(aes(y = (..count..)/sum(..count..))) + scale_y_continuous(labels=scales::percent) + ylab("Porcentagem relativa nos dados")
+train_data %>% ggplot(aes(situacao)) + geom_bar(aes(y = (..count..)/sum(..count..))) + scale_y_continuous(labels=scales::percent) + ylab("Porcentagem relativa nos dados")
 ```
 
-Observamos que a situação não eleito está presente em mais de 80% dos dados de treinamento, nesse caso observamos uma desbalanceamento em uma grande proporção, considerando que eleito equivale a menos de 15 % dos dados. 
-Desse modo, pode ser criado um víes na qual o modelo aprenderá a ignorar as classes menos frequentes, levando a um impacto negativo na generalização do modelo e seu desempenho. 
+Observamos que a situação não eleito está presente em mais de 80% dos dados de treinamento, nesse caso observamos uma desbalanceamento em uma grande proporção, considerando que eleito equivale a menos de 15% dos dados.
+Desse modo, pode ser criado um viés na qual o modelo aprenderá a ignorar as classes menos frequentes, levando a um impacto negativo na generalização do modelo e seu desempenho.
 O tratamento desses desbalanceamento pode ser dado de duas formas, são elas:
+
 + Undersampling
 + Oversampling
 
 ## Pre-processamento dos dados
 
+Dividimos o conjunto de traino em traino e validação para poder validar o modelo.
+```{r}
+partition <- createDataPartition(y = train_data$situacao, p=0.75, list=FALSE)
+set.seed(9560)
+train <- train_data[partition, ]
+validacao <- train_data[-partition, ]
+```
+
+
 Iremos "limpar os dados" desconsiderando algumas variaveis na qual não consideramos nescessaria para a geração dos modelos.
 ```{r}
+set.seed(107)
 train <- train %>%   
-          select(-ano,
-                 -nome,
-                 -id,-sequencial_candidato)
-test <- test %>%   
-          select(-ano,
-                 -nome,
-                 -id,-sequencial_candidato)
+          select(-partido,
+                 -uf,-nome,
+                 -estado_civil,
+                 -ocupacao,-ano,
+                 -cargo,-grau,-sexo,
+                 -sequencial_candidato)
+
+validacao <- validacao %>%   
+          select(-partido,
+                 -uf,-nome,
+                 -estado_civil,
+                 -ocupacao,-ano,
+                 -cargo,-grau,-sexo,
+                 -sequencial_candidato)
+test <- test_data %>%   
+          select(-partido,
+                 -uf,-nome,
+                 -estado_civil,
+                 -ocupacao,-ano,
+                 -cargo,-grau,-sexo)
 ```
 
 Levando em consideração o desbalacemaneto existente, iremos utilizar a função SMOTE para o balancemaneto. 
@@ -62,6 +88,7 @@ Levando em consideração o desbalacemaneto existente, iremos utilizar a funçã
 > A função SMOTE faz sobreamostragem de seu evento raro usando bootstrapping e k-neighbor mais próximo para criar sinteticamente observações adicionais daquele evento.
 
 ```{r}
+set.seed(107)
 train <- train %>% SMOTE(situacao ~ .,
                           data = ., 
                           perc.over = 200, 
@@ -74,12 +101,39 @@ train %>%
   mutate(total = sum(num))
 ```
 
+### Funções auxiliares
+
+```{r}
+F_Measure <- function(expected, predicted, ...) {
+resultado<-  data.frame(expected=expected,
+             prediction=predicted) %>%
+      mutate(tp = ifelse(expected == "eleito" & 
+                         prediction == "eleito",1,0),
+             fn = ifelse(expected == "eleito" &
+                         prediction == "nao_eleito",1,0),
+             fp = ifelse(expected == "nao_eleito" &
+                         prediction == "eleito",1,0)) 
+ resultado <-  resultado  %>%
+    summarize(x = sum(tp),
+              y = sum(fp),
+              z = sum(fn)) %>%
+    mutate(recall = x / (x + z),
+           precision = x/ (x + y),
+           f_measure = 2 * (precision * recall) / (precision + recall))
+  resultado$x <- NULL
+  resultado$y <- NULL
+  resultado$z <- NULL
+  return(resultado)
+}
+```
 
 ## Treine: um modelo de KNN, regressão logística, uma árvore de decisão e um modelo de adaboost. Tune esses modelos usando validação cruzada e controle overfitting se necessário, considerando as particularidades de cada modelo. 
 
+Para a geração dos modelos, iremos utilizar á biblioteca caret e assim trainar os modelos usando as funções trainControl e train.
+
 ### KNN
 ```{r}
-cross_validation <- trainControl(method = "boot", classProbs = TRUE,summaryFunction = f1)
+cross_validation <- trainControl(method = "boot", classProbs = TRUE,savePredictions = "final")
 k <- expand.grid(k = seq(from=1, to=50, by=1))
 model_knn <- train(situacao ~ ., 
                      data = train, 
@@ -94,7 +148,7 @@ model_knn
 ### Regressão Logística
 ```{r}
 rlGrid <- expand.grid(cost = c(200,2,0.02),loss = c("L2","L2_dual","L2_primal"), epsilon = c(0.001,0.01))
-cross_validation <- trainControl(method = "boot",classProbs = TRUE,summaryFunction = f1)
+cross_validation <- trainControl(method = "boot",classProbs = TRUE,savePredictions = "final")
 model_logistic<- train(situacao ~ ., 
                      data = train, 
                      method = "regLogistic",
@@ -108,7 +162,7 @@ model_logistic
 ### Árvore de Decisão
 
 ```{r}
-cross_validation <- trainControl(method = "boot",classProbs = TRUE,summaryFunction = f1)
+cross_validation <- trainControl(method = "boot",classProbs = TRUE,savePredictions = "final")
 
 model_tree<- train(situacao ~ .,
                      metric = "F1",
@@ -123,7 +177,7 @@ model_tree
 ### Adaboost
 
 ```{r}
-cross_validation <- trainControl(method = "boot",seeds = seeds, search = "random", verboseIter = FALSE)
+cross_validation <- trainControl(method = "boot", verboseIter = FALSE,savePredictions = "final")
 
 model_ada<- train(situacao ~ ., 
                      data = train, 
@@ -140,32 +194,132 @@ model_ada
 ## Reporte precision, recall e f-measure no treino e validação. Há uma grande diferença de desempenho no treino/validação? Como você avalia os resultados? 
 
 ### KNN
+
+#### Treino
 ```{r}
-model_knn 
+model_knn %$%
+  pred %>%
+  F_Measure(expected = .$obs,
+            predicted = .$pred)
 ```
 
+#### Validação
+```{r}
+validacao %>%
+  predict(object=model_knn,.) %>%
+  F_Measure(validacao$situacao,.)
+```
+
+Observamos que no conjunto de validação os valores de recall, precision e f_meansure baixo em relação ao conjunto de treino.
 
 ### Regressão Logística
 
+#### Treino
+```{r}
+model_logistic %$%
+  pred %>%
+  F_Measure(expected = .$obs,
+            predicted = .$pred)
+```
+
+#### Validação
+```{r}
+validacao %>%
+  predict(object=model_logistic,.) %>%
+  F_Measure(validacao$situacao,.)
+```
+Observamos que no conjunto de validação os valores de precision e f_meansure baixo em relação ao conjunto de treino.
 
 ### Árvore de Decisão
 
+#### Treino
+```{r}
+model_tree %$%
+  pred %>%
+  F_Measure(expected = .$obs,
+            predicted = .$pred)
+```
+#### Validação
+```{r}
+validacao %>%
+  predict(object=model_tree,.) %>%
+  F_Measure(validacao$situacao,.)
+```
+
+Observamos que no conjunto de validação os valores de precision e f_meansure baixo em relação ao conjunto de treino.
 
 ### Adaboost
 
+#### Treino
+```{r}
+model_ada %$%
+  pred %>%
+  F_Measure(expected = .$obs,
+            predicted = .$pred)
+```
+#### Validação
+```{r}
+validacao %>%
+  predict(object=model_ada,.) %>%
+  F_Measure(validacao$situacao,.)
+```
+
+Observamos que no conjunto de validação os valores de precision e f_meansure baixo em relação ao conjunto de treino.
+
+### Conclusão
+Como observamos todos os modelos os valores de precision e f_mensure é baixo perante ao conjunto de treino.
 
 ## Interprete as saídas dos modelos. Quais atributos parecem ser mais importantes de acordo com cada modelo?
 
-
-
-
-
-
-### Save model results
-
+### KNN
 ```{r}
-pred <- predict(model_logistic, test)
-data <- data.frame(ID = test$sequencial_candidato, Predicted = pred) 
-data$ID <- as.character(data$ID)
-data %>% write_csv(path = "data/result.csv") 
+ggplot(varImp(model_knn))
 ```
+
+Observamos que para o knn os atributos mais importantes são:
+
++ total_receita
++ total_despesa
++ recursos_de_pessoas_juridicas
++ quantidade_fornecedores
++ quantidade_despesas
+
+### Regressão Logística
+```{r}
+ggplot(varImp(model_logistic))
+```
+
+Observamos que para o regressão logística os atributos mais importantes são:
+
++ total_receita
++ total_despesa
++ recursos_de_pessoas_juridicas
++ quantidade_fornecedores
++ quantidade_despesas
+
+### Árvore de Decisão
+```{r}
+ggplot(varImp(model_tree))
+```
+
+Observamos que para árvore de decisão os atributos mais importantes são:
+
++ total_despesa
++ total_receita
++ recursos_de_pessoas_juridicas
++ quantidade_fornecedores
++ quantidade_despesas
+
+### Adaboost
+```{r}
+ggplot(varImp(model_ada))
+```
+
+Observamos que para o adaboost os atributos mais importantes são:
+
++ total_receita
++ total_despesa
++ recursos_de_pessoas_juridicas
++ quantidade_fornecedores
++ quantidade_despesas
+

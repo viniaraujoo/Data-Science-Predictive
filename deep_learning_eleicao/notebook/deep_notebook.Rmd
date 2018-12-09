@@ -1,0 +1,143 @@
+---
+title: "Deep leaning em Predição eleição deputados"
+author: "Vinicius Brandão Araujo"
+date: 05/12/2018
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: yes
+  html_notebook:
+    toc: yes
+    toc_float: yes
+---
+
+
+```{r setup, include=FALSE}
+library(caret)
+library(tidyverse)
+library(gridExtra)
+library(grid)
+library(keras)
+library(DMwR)
+```
+
+```{r}
+train_data <- read.csv("../data/train.csv")
+test_data <- read.csv("../data/test.csv")
+```
+
+
+## Há desbalanceamento das classes (isto é, uma classe tem muito mais instâncias que outra)? Em que proporção? Quais efeitos colaterais o desbalanceamento de classes pode causar no classificador? Como você poderia tratar isso?
+
+Como o principal intuito é a predição se um candidato foi eleito ou não, devemos considerar a classe situação e assim observar como está distribuida no conjunto de treinamento.
+
+```{r}
+train_data %>% ggplot(aes(situacao)) + geom_bar(aes(y = (..count..)/sum(..count..))) + scale_y_continuous(labels=scales::percent) + ylab("Porcentagem relativa nos dados")
+```
+
+Observamos que a situação não eleito está presente em mais de 80% dos dados de treinamento, nesse caso observamos uma desbalanceamento em uma grande proporção, considerando que eleito equivale a menos de 15% dos dados.
+Desse modo, pode ser criado um viés na qual o modelo aprenderá a ignorar as classes menos frequentes, levando a um impacto negativo na generalização do modelo e seu desempenho.
+O tratamento desses desbalanceamento pode ser dado de duas formas, são elas:
+
++ Undersampling
++ Oversampling
+
+## Pre-processamento dos dados
+
+Dividimos o conjunto de traino em traino e validação para poder validar o modelo.
+```{r}
+partition <- createDataPartition(y = train_data$situacao, p=0.75, list=FALSE)
+set.seed(9560)
+train <- train_data[partition, ]
+validacao <- train_data[-partition, ]
+```
+
+
+Iremos "limpar os dados" desconsiderando algumas variaveis na qual não consideramos nescessaria para a geração dos modelos.
+```{r}
+set.seed(107)
+train <- train %>%   
+          select(-partido,
+                 -uf,-nome,
+                 -estado_civil,
+                 -ocupacao,-ano,
+                 -cargo,-grau,-sexo,
+                 -sequencial_candidato)
+
+validacao <- validacao %>%   
+          select(-partido,
+                 -uf,-nome,
+                 -estado_civil,
+                 -ocupacao,-ano,
+                 -cargo,-grau,-sexo,
+                 -sequencial_candidato)
+test <- test_data %>%   
+          select(-partido,
+                 -uf,-nome,
+                 -estado_civil,
+                 -ocupacao,-ano,
+                 -cargo,-grau,-sexo)
+```
+
+Levando em consideração o desbalacemaneto existente, iremos utilizar a função SMOTE para o balancemaneto. 
+
+> A função SMOTE faz sobreamostragem de seu evento raro usando bootstrapping e k-neighbor mais próximo para criar sinteticamente observações adicionais daquele evento.
+
+```{r}
+set.seed(107)
+train <- train %>% SMOTE(situacao ~ .,
+                          data = ., 
+                          perc.over = 200, 
+                          perc.under=200)
+validacao <- validacao %>% SMOTE(situacao ~ .,
+                          data = ., 
+                          perc.over = 200, 
+                          perc.under=200)
+
+train %>%
+  group_by(situacao) %>%
+  summarise(num = n()) %>%
+  ungroup() %>%
+  mutate(total = sum(num))
+```
+
+
+### Keras date
+
+```{r}
+train_d <- train
+train <- train  %>% mutate(situacao = unclass(train$situacao))
+train <- as.matrix(train)
+
+dimnames(train) <- NULL
+
+x_train <- train[,1:14]
+y_train <- train[,15]
+```
+
+## Model
+
+```{r}
+model <- keras_model_sequential()
+model %>% 
+    layer_dense(units = 8, activation = 'relu', input_shape = c(14)) %>% 
+    layer_dense(units = 1, activation = 'softmax')
+```
+
+```{r}
+model %>% compile(loss = 'categorical_crossentropy',
+     optimizer = 'adam',
+     metrics = 'accuracy')
+```
+
+```{r}
+model %>% fit(
+     x_train, 
+     y_train, 
+     epochs = 200, 
+     batch_size = 5, 
+     validation_split = 0.2
+ )
+```
+
